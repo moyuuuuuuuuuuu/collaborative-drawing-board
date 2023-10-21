@@ -14,7 +14,7 @@
 
 use Webman\Route;
 
-
+Route::get('/', [\app\controller\IndexController::class, 'index']);
 
 
 

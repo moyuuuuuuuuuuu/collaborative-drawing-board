@@ -16,12 +16,12 @@ global $argv;
 
 return [
     // File update detection and automatic reload
-    'monitor' => [
-        'handler' => process\Monitor::class,
-        'reloadable' => false,
+    'monitor'   => [
+        'handler'     => process\Monitor::class,
+        'reloadable'  => false,
         'constructor' => [
             // Monitor these directories
-            'monitorDir' => array_merge([
+            'monitorDir'        => array_merge([
                 app_path(),
                 config_path(),
                 base_path() . '/process',
@@ -33,10 +33,15 @@ return [
             'monitorExtensions' => [
                 'php', 'html', 'htm', 'env'
             ],
-            'options' => [
-                'enable_file_monitor' => !in_array('-d', $argv) && DIRECTORY_SEPARATOR === '/',
+            'options'           => [
+                'enable_file_monitor'   => !in_array('-d', $argv) && DIRECTORY_SEPARATOR === '/',
                 'enable_memory_monitor' => DIRECTORY_SEPARATOR === '/',
             ]
         ]
+    ],
+    'websocket' => [
+        'handler' => \process\Websocket::class,
+        'listen'  => 'websocket://0.0.0.0:8888',
+        'count'   => 4
     ]
 ];
