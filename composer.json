@@ -27,7 +27,11 @@
     "php": ">=7.2",
     "workerman/webman-framework": "^1.5.0",
     "monolog/monolog": "^2.0",
-    "vlucas/phpdotenv": "^5.5"
+    "vlucas/phpdotenv": "^5.5",
+    "janmas/encryption": "^1.0",
+    "illuminate/redis": "^9.52",
+    "illuminate/events": "^9.52",
+    "webman/gateway-worker": "^1.0"
   },
   "suggest": {
     "ext-event": "For better performance. "

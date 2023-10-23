@@ -19,7 +19,7 @@ listenToUser(canvas);
 
 getColor();
 
-window.onbeforeunload = function(){
+window.onbeforeunload = function () {
     return "Reload site?";
 };
 
@@ -89,7 +89,7 @@ function listenToUser(canvas) {
                 let x = e.clientX;
                 let y = e.clientY;
                 let newPoint = {"x": x, "y": y};
-                drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y,clear);
+                drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y, clear);
                 lastPoint = newPoint;
             }
         };
@@ -111,7 +111,7 @@ function drawCircle(x, y, radius) {
     ctx.fill();
     if (clear) {
         ctx.clip();
-        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
     }
 }
@@ -128,9 +128,9 @@ function drawLine(x1, y1, x2, y2) {
         ctx.stroke();
         ctx.closePath();
         ctx.clip();
-        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
-    }else{
+    } else {
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
@@ -138,7 +138,7 @@ function drawLine(x1, y1, x2, y2) {
     }
 }
 
-range.onchange = function(){
+range.onchange = function () {
     lWidth = this.value;
 };
 
@@ -169,7 +169,7 @@ save.onclick = function () {
     saveA.click();
 };
 
-function getColor(){
+function getColor() {
     for (let i = 0; i < aColorBtn.length; i++) {
         aColorBtn[i].onclick = function () {
             for (let i = 0; i < aColorBtn.length; i++) {
@@ -185,13 +185,13 @@ function getColor(){
 
 let historyDeta = [];
 
-function saveData (data) {
+function saveData(data) {
     (historyDeta.length === 10) && (historyDeta.shift());// 上限为储存10步，太多了怕挂掉
     historyDeta.push(data);
 }
 
-undo.onclick = function(){
-    if(historyDeta.length < 1) return false;
+undo.onclick = function () {
+    if (historyDeta.length < 1) return false;
     ctx.putImageData(historyDeta[historyDeta.length - 1], 0, 0);
     historyDeta.pop()
 };

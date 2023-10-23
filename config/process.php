@@ -38,10 +38,5 @@ return [
                 'enable_memory_monitor' => DIRECTORY_SEPARATOR === '/',
             ]
         ]
-    ],
-    'websocket' => [
-        'handler' => \process\Websocket::class,
-        'listen'  => 'websocket://0.0.0.0:8888',
-        'count'   => 4
     ]
 ];
