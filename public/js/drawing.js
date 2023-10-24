@@ -16,6 +16,7 @@ class Drawing {
         share: document.getElementById('share'),
     }
     historyData = []
+    deviceWidth = window.screen.width
 
     constructor(websocket, canvas, groupId = 0) {
         const that = this;
@@ -155,7 +156,8 @@ class Drawing {
                             endPoint: newPoint,
                             clear: that.clear,
                             color: that.activeColor,
-                            width: that.lWidth
+                            width: that.lWidth,
+                            deviceWidth: window.screen.width
                         }
                     })
                     that.drawLine(startPoint, newPoint, that.clear);
@@ -185,7 +187,8 @@ class Drawing {
                             endPoint: newPoint,
                             clear: that.clear,
                             color: that.activeColor,
-                            width: that.lWidth
+                            width: that.lWidth,
+                            deviceWidth: window.screen.width
                         }
                     })
                     that.drawLine(startPoint, newPoint, that.clear);
@@ -204,9 +207,18 @@ class Drawing {
 
     }
 
-    drawLine(startPoint, endPoint, clear, color = '', width = this.lWidth) {
+    drawLine(startPoint, endPoint, clear, color = '', width = this.lWidth, deviceWidth = this.deviceWidth) {
         const that = this;
         that.ctx.beginPath();
+        let p = deviceWidth / that.canvas.width;
+        startPoint = {
+            x: startPoint.x / p,
+            y: startPoint.y / p
+        }
+        endPoint = {
+            x: endPoint.x / p,
+            y: endPoint.y / p
+        }
         that.ctx.moveTo(startPoint.x, startPoint.y);
         that.ctx.lineWidth = width;
         that.ctx.lineCap = "round";

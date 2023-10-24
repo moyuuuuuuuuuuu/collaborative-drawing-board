@@ -42,9 +42,9 @@
 <script src="js/drawing.js?t=<?= time()?>"></script>
 <script src="js/drawsocket.js?t=<?= time()?>"></script>
 <script>
-
+    let host = 'ws://127.0.0.1:7272';//'ws://' + window.location.host + '/websocket'
     var options = {
-            url: 'ws://' + window.location.host + '/websocket',
+            url: host,
             query: {
                 group_id: '<?= $roomId?>',
             },

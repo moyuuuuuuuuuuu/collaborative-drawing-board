@@ -27,8 +27,8 @@ class Events
         Gateway::bindUid($client_id, $data['get']['client_id']);
         Gateway::joinGroup($client_id, $data['get']['group_id']);
         Gateway::setSession($client_id, [
-            'client_id' => $data['get']['client_id'],
-            'group_id'  => $data['get']['group_id']
+            'client_id'    => $data['get']['client_id'],
+            'group_id'     => $data['get']['group_id']
         ]);
         Gateway::sendToClient($client_id, json_encode([
                 'cmd'     => 'join',
@@ -82,6 +82,8 @@ class Events
                     ])
                 );
             }
+        } else if ($data['type'] == 'ping') {
+            Gateway::sendToClient($client_id, '{"type":"pong"}');
         }
     }
 
