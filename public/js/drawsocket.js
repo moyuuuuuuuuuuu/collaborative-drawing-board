@@ -34,18 +34,22 @@ class DrawSocket {
             that.options.currentReconnectTimes++;
         }
         let url = that.buildUrl()
-        that.websocketInstance = new WebSocket(url)
-        that.websocketInstance.onopen = function (res) {
-            that.onOpen(res)
-        };
-        that.websocketInstance.onmessage = function (res) {
-            that.onMessage(res)
-        }
-        that.websocketInstance.onclose = function (res) {
-            that.onClose(res)
-        }
-        that.websocketInstance.onerror = function (res) {
-            that.onError(res)
+        try {
+            that.websocketInstance = new WebSocket(url)
+            that.websocketInstance.onopen = function (res) {
+                that.onOpen(res)
+            };
+            that.websocketInstance.onmessage = function (res) {
+                that.onMessage(res)
+            }
+            that.websocketInstance.onclose = function (res) {
+                that.onClose(res)
+            }
+            that.websocketInstance.onerror = function (res) {
+                that.onError(res)
+            }
+        } catch (error) {
+            layer.msg('连接失败服务器失败，你将不可享受协作功能')
         }
 
     }

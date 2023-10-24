@@ -134,68 +134,52 @@ class Drawing {
 
     listenUserDraw() {
         const that = this;
-        //移动端监听
-        if (/Android/i.test(navigator.userAgent) || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            that.canvas.addEventListener('mousedown', function () {
-                layer.msg('12123123')
-                let isPointing = false, startPoint;
-                that.canvas.ontouchstart = (e) => {
-                    isPointing = true;
-                    startPoint = {x: e.clientX, y: e.clientY}
-                };
-                that.canvas.ontouchmove = (e) => {
-                    if (isPointing) {
-                        let endPoint = {x: e.clientX, y: e.clientY}
-                        that.drawLine(startPoint, endPoint, that.clear)
-                        that.websocket.send(that.groupId, {
-                            cmd: 'draw',
-                            drawInfo: {
-                                startPoint: startPoint,
-                                endPoint: endPoint,
-                                clear: that.clear,
-                                color: that.activeColor,
-                                width: that.lWidth
-                            }
-                        })
-                        startPoint = endPoint
-                    }
-                }
+        let isPainting = false, startPoint = {};
+        if (document.body.ontouchstart !== undefined) {
+            that.canvas.ontouchstart = function (e) {
+                isPainting = true;
+                let x = e.touches[0].clientX;
+                let y = e.touches[0].clientY;
+                startPoint = {"x": x, "y": y};
+            };
+            that.canvas.ontouchmove = function (e) {
 
-                that.canvas.ontouchend = () => {
-                    isPointing = false;
+                if (isPainting) {
+                    let x = e.touches[0].clientX;
+                    let y = e.touches[0].clientY;
+                    let newPoint = {"x": x, "y": y};
+                    that.drawLine(startPoint, newPoint, that.clear);
+                    startPoint = newPoint;
                 }
-            });
+            };
+
+            that.canvas.ontouchend = function () {
+                isPainting = false;
+            }
         } else {
-            that.canvas.addEventListener('mousedown', function () {
-                let isPointing = false;
-                that.canvas.onmousedown = (e) => {
-                    isPointing = true;
-                    let startPoint = {x: e.clientX, y: e.clientY}
-                    that.canvas.onmousemove = (e) => {
-                        if (isPointing) {
-                            let endPoint = {x: e.clientX, y: e.clientY}
-                            that.drawLine(startPoint, endPoint, that.clear)
-                            that.websocket.send(that.groupId, {
-                                cmd: 'draw',
-                                drawInfo: {
-                                    startPoint: startPoint,
-                                    endPoint: endPoint,
-                                    clear: that.clear,
-                                    color: that.activeColor,
-                                    width: that.lWidth
-                                }
-                            })
-                            startPoint = endPoint
-                        }
-                    }
-                    that.canvas.onmouseup = () => {
-                        isPointing = false;
-                    }
+            that.canvas.onmousedown = function (e) {
+                isPainting = true;
+                let x = e.clientX;
+                let y = e.clientY;
+                startPoint = {"x": x, "y": y};
+            };
+            that.canvas.onmousemove = function (e) {
+                if (isPainting) {
+                    let x = e.clientX;
+                    let y = e.clientY;
+                    let newPoint = {"x": x, "y": y};
+                    that.drawLine(startPoint, newPoint, that.clear);
+                    startPoint = newPoint;
                 }
+            };
 
-                /*let data = that.ctx.getImageData(0, 0, that.canvas.width, that.canvas.height);
-                that.historyData.push(data);*/
-            });
+            that.canvas.onmouseup = function () {
+                isPainting = false;
+            };
+
+            that.canvas.mouseleave = function () {
+                isPainting = false;
+            }
         }
 
     }
