@@ -136,7 +136,7 @@ class Drawing {
         const that = this;
         //移动端监听
         if (/Android/i.test(navigator.userAgent) || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            that.canvas.addEventListener('touchstart', function (e) {
+            that.canvas.addEventListener('mousedown', function () {
                 let isPointing = false, startPoint;
                 that.canvas.ontouchstart = (e) => {
                     isPointing = true;
@@ -160,12 +160,12 @@ class Drawing {
                     }
                 }
 
-                that.canvas.ontouchend = (e) => {
+                that.canvas.ontouchend = () => {
                     isPointing = false;
                 }
             });
         } else {
-            that.canvas.addEventListener('mousedown', function (e) {
+            that.canvas.addEventListener('mousedown', function () {
                 let isPointing = false;
                 that.canvas.onmousedown = (e) => {
                     isPointing = true;
@@ -187,7 +187,7 @@ class Drawing {
                             startPoint = endPoint
                         }
                     }
-                    that.canvas.onmouseup = (e) => {
+                    that.canvas.onmouseup = () => {
                         isPointing = false;
                     }
                 }
