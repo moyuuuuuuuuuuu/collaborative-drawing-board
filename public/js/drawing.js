@@ -134,12 +134,38 @@ class Drawing {
 
     listenUserDraw() {
         const that = this;
-        that.canvas.addEventListener('mousedown', function (e) {
-                let x = e.clientX;
-                let y = e.clientY;
-                let startPoint = {x: x, y: y}
-                that.canvas.addEventListener('mousestart', (e) => {
-                })
+        //移动端监听
+        if (/Android/i.test(navigator.userAgent) || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            that.canvas.addEventListener('touchstart', function (e) {
+                let isPointing = false, startPoint;
+                that.canvas.ontouchstart = (e) => {
+                    isPointing = true;
+                    startPoint = {x: e.clientX, y: e.clientY}
+                };
+                that.canvas.ontouchmove = (e) => {
+                    if (isPointing) {
+                        let endPoint = {x: e.clientX, y: e.clientY}
+                        that.drawLine(startPoint, endPoint, that.clear)
+                        that.websocket.send(that.groupId, {
+                            cmd: 'draw',
+                            drawInfo: {
+                                startPoint: startPoint,
+                                endPoint: endPoint,
+                                clear: that.clear,
+                                color: that.activeColor,
+                                width: that.lWidth
+                            }
+                        })
+                        startPoint = endPoint
+                    }
+                }
+
+                that.canvas.ontouchend = (e) => {
+                    isPointing = false;
+                }
+            });
+        } else {
+            that.canvas.addEventListener('mousedown', function (e) {
                 let isPointing = false;
                 that.canvas.onmousedown = (e) => {
                     isPointing = true;
@@ -168,8 +194,9 @@ class Drawing {
 
                 /*let data = that.ctx.getImageData(0, 0, that.canvas.width, that.canvas.height);
                 that.historyData.push(data);*/
-            }
-        );
+            });
+        }
+
     }
 
     drawLine(startPoint, endPoint, clear, color = '', width = this.lWidth) {
