@@ -176,7 +176,7 @@ body {
 @media screen and (max-width: 768px) {
     .tools {
         bottom: auto;
-        top: 20px;
+        top: 60px;
     }
 
     .tools button {
