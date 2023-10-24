@@ -68,7 +68,7 @@ class DrawSocket {
         const that = this,
             messageData = JSON.parse(res.data)
         if (messageData.cmd == 'draw') {
-            that.draw.drawLine(messageData.drawInfo.startPoint, messageData.drawInfo.endPoint, messageData.drawInfo.clear, messageData.drawInfo.color, messageData.drawInfo.width);
+            that.draw.drawLine(messageData.drawInfo.startPoint, messageData.drawInfo.endPoint, messageData.drawInfo.clear, messageData.drawInfo.color, messageData.drawInfo.width, messageData.drawInfo.deviceWidth);
         } else if (messageData.cmd == 'clear') {
             layer.confirm('是否清空画布？', ['是', '否'], () => {
                 that.draw.clearCanvas()
