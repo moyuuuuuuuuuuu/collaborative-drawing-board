@@ -26,6 +26,27 @@ class Events
         }
         Gateway::bindUid($client_id, $data['get']['client_id']);
         Gateway::joinGroup($client_id, $data['get']['group_id']);
+        Gateway::setSession($client_id, [
+            'client_id' => $data['get']['client_id'],
+            'group_id'  => $data['get']['group_id']
+        ]);
+        Gateway::sendToClient($client_id, json_encode([
+                'cmd'     => 'join',
+                'message' => '连接成功',
+                'data'    => [
+                    'num'             => Gateway::getClientCountByGroup($data['get']['group_id']),
+                    'showReloadLayer' => Gateway::getClientCountByGroup($data['get']['group_id']) > 1
+                ]
+            ])
+        );
+        Gateway::sendToGroup($data['get']['group_id'], json_encode([
+            'cmd'     => 'join',
+            'data'    => [
+                'group_id' => $data['get']['group_id'],
+                'num'      => Gateway::getClientCountByGroup($data['get']['group_id'])
+            ],
+            'message' => '有新用户加入'
+        ]), [$client_id]);
     }
 
     public static function onMessage($client_id, $message)
@@ -33,11 +54,51 @@ class Events
         //cmd connect,draw
         $data    = json_decode($message, true);
         $groupId = $data['groupId'] ?? 0;
-        Gateway::sendToGroup($message['group_id'], $message['data']);
+        if ($data['cmd'] == 'draw') {
+            Gateway::sendToGroup($groupId, $message, [$client_id]);
+        } else if ($data['cmd'] == 'clear') {
+            Gateway::sendToGroup($groupId, $message, [$client_id]);
+        } else if ($data['cmd'] == 'reload') {
+            $clientIdList = Gateway::getClientIdListByGroup($groupId);
+            $clientId     = array_shift($clientIdList);
+            while ($clientId == $client_id || !Gateway::isOnline($clientId)) {
+                $clientId = array_shift($clientIdList);
+            }
+            Gateway::sendToClient($clientId, json_encode([
+                    'cmd'  => 'getimg',
+                    'data' => [
+                        'client_id' => $client_id
+                    ]
+                ])
+            );
+        } else if ($data['cmd'] = 'getimg') {
+            list($img, $client_id) = array_values($data['data']);
+            Gateway::sendToClient($client_id, json_encode([
+                'cmd'  => 'setimg',
+                'data' => [
+                    'img' => $img
+                ]
+            ]));
+        }
     }
 
     public static function onClose($client_id)
     {
+        Gateway::sendToClient($client_id, json_encode([
+            'cmd'     => 'close',
+            'message' => '您已经离开频道不可再享受协作功能'
+        ]));
+        $groupId = Gateway::getSession($client_id)['group_id'] ?? 0;
+        Gateway::leaveGroup($client_id, $groupId);
+        if ($groupId) {
+            Gateway::sendToGroup($groupId, json_encode([
+                'cmd'     => 'leave',
+                'message' => '有用户离开',
+                'data'    => [
+                    'num' => Gateway::getClientCountByGroup($groupId)
+                ]
+            ]), [$client_id]);
+        }
 
     }
 

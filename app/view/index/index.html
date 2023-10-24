@@ -27,43 +27,50 @@
     <button id="brush" class="active" title="画笔"><i class="iconfont icon-huabi"></i></button>
     <button id="eraser" title="橡皮擦"><i class="iconfont icon-xiangpica"></i></button>
     <button id="clear" title="清空"><i class="iconfont icon-clean"></i></button>
-    <button id="undo" title="撤销"><i class="iconfont icon-undo"></i></button>
+    <!--    <button id="undo" title="撤销"><i class="iconfont icon-undo"></i></button>-->
     <button id="save" title="保存"><i class="iconfont icon-save"></i></button>
     <button id="share" title="分享"><i class="iconfont icon-share"></i></button>
 </div>
 <div class="readyStatus "><i class="iconfont icon-dot"></i> <span>未连接</span></div>
+<div class="connect-num"><div><?= $roomId?>:当前人数</div><span>0</span>人</div>
 </body>
+<script src="js/jquery.min.js?t=<?= time()?>"></script>
+<script src="layer/layer.js?t=<?= time()?>"></script>
 <script src="js/drawing.js?t=<?= time()?>"></script>
-<script src="js/init-socket.js?t=<?= time()?>"></script>
+<script src="js/drawsocket.js?t=<?= time()?>"></script>
 <script>
 
     var options = {
-        url: 'ws://127.0.0.1:7272',
-        query: {
+            url: 'ws://127.0.0.1:7272',
+            query: {
+                group_id: '<?= $roomId?>',
+            },
             group_id: '<?= $roomId?>',
-        },
-        group_id: '<?= $roomId?>',
-        closeCallback: function (res,reason = '') {
-            document.querySelector('.readyStatus span').innerHTML = reason || '连接已断开';
-            document.querySelector('.readyStatus').className = 'readyStatus disconnected';
-            console.log(websocket.options.currentReconnectTimes, websocket.options.maxReconnectTimes, websocket.options.continueReconnectTimes)
-            if (websocket.options.currentReconnectTimes >= websocket.options.maxReconnectTimes) {
-                alert("重连失败");
-                return;
-            } else if (websocket.options.currentReconnectTimes >= websocket.options.continueReconnectTimes) {
-                /* if (confirm("检测到您多次重连是否静默重连?")) {
-                     websocket.reConnect(true);
-                 }*/
-                return;
-            } else {
-                websocket.reConnect();
-            }
+            closeCallback: function (res, reason = '') {
+                document.querySelector('.readyStatus span').innerHTML = reason || '连接已断开';
+                document.querySelector('.readyStatus').className = 'readyStatus disconnected';
+                if (websocket.options.currentReconnectTimes >= websocket.options.maxReconnectTimes) {
+                    layer.msg("重连失败");
+                    return;
+                } else if (websocket.options.currentReconnectTimes >= websocket.options.continueReconnectTimes) {
 
+                    /* if (confirm("检测到您多次重连是否静默重连?")) {
+                         websocket.reConnect(true);
+                     }*/
+                    return;
+                } else {
+                    websocket.reConnect();
+                }
+
+            },
+            connectedCallback: function (res) {
+                document.querySelector('.readyStatus span').innerHTML = '已连接';
+                document.querySelector('.readyStatus').className = 'readyStatus connected';
+            },
         },
-        connectedCallback: function () {
-            document.querySelector('.readyStatus span').innerHTML = '已连接';
-            document.querySelector('.readyStatus').className = 'readyStatus connected';
-        },
-    }, websocket = new DrawSocket(options);
+        websocket = new DrawSocket(options),
+        drawing = new Drawing(websocket, document.getElementById('drawing-board'), '<?= $roomId?>');
+    websocket.setDraw(drawing)
+    //设置监听
 </script>
 </html>

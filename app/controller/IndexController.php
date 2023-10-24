@@ -8,7 +8,7 @@ class IndexController
 {
     public function index(Request $request)
     {
-        $roomId = $request->get('room_id', 0);
+        $roomId = $request->get('r', 0);
         if (!$roomId) {
             $roomId = uuid();
         }

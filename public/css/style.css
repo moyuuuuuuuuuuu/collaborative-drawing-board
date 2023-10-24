@@ -151,6 +151,20 @@ body {
     padding: 5px 10px;
 }
 
+.connect-num {
+    position: fixed;
+    right: 10px;
+    top: 10px;
+    background: rgba(91, 91, 91, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 20px;
+    color: #ffffff;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
 .disconnected i {
     color: #FF3333
 }

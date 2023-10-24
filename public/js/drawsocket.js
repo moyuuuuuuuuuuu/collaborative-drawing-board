@@ -17,7 +17,7 @@ class DrawSocket {
         //检测是否支持websocket
         if (!window.WebSocket) {
             that.options.closeCallback && that.options.closeCallback(null, '您的浏览器不支持websocket无法参与协作')
-            alert('您的浏览器不支持websocket无法参与协作');
+            layer.alert('您的浏览器不支持websocket无法参与协作');
             return;
         }
         that.options = Object.assign({}, that.options, options)
@@ -50,13 +50,50 @@ class DrawSocket {
 
     }
 
+    setDraw(draw) {
+        this.draw = draw
+    }
+
     onOpen(res) {
         const that = this;
         that.options.connectedCallback && this.options.connectedCallback(res)
-        that.websocketInstance.send(JSON.stringify({group_id: that.options.group_id, data: {}}));
+        // that.websocketInstance.send(JSON.stringify({group_id: that.options.group_id, data: {}}));
     }
 
     onMessage(res) {
+        const that = this,
+            messageData = JSON.parse(res.data)
+        if (messageData.cmd == 'draw') {
+            that.draw.drawLine(messageData.drawInfo.startPoint, messageData.drawInfo.endPoint, messageData.drawInfo.clear, messageData.drawInfo.color, messageData.drawInfo.width);
+        } else if (messageData.cmd == 'clear') {
+            layer.confirm('是否清空画布？', ['是', '否'], () => {
+                that.draw.clearCanvas()
+                layer.closeAll()
+            })
+        } else if (messageData.cmd == 'close') {
+            layer.msg(messageData.message)
+        } else if (messageData.cmd == 'join') {
+            layer.msg(messageData.message)
+            document.querySelector('.connect-num span').innerHTML = messageData.data.num;
+            if (messageData.data.showReloadLayer) {
+                that.send(that.options.group_id, {cmd: 'reload'})
+            }
+        } else if (messageData.cmd == 'leave') {
+            layer.msg(messageData.message)
+            document.querySelector('.connect-num span').innerHTML = messageData.data.num;
+        } else if (messageData.cmd == 'getimg') {
+            let img = that.draw.saveImg(true)
+            that.send(that.options.group_id, {
+                cmd: 'getimg',
+                data: {
+                    img: img,
+                    client_id: messageData.data.client_id
+                }
+            })
+        } else if (messageData.cmd == 'setimg') {
+            this.draw.drawWithImg(messageData.data.img)
+            layer.closeAll()
+        }
     }
 
     onClose(res) {
@@ -83,6 +120,11 @@ class DrawSocket {
         that.websocketInstance.send(JSON.stringify(data))
     }
 
+    reload() {
+        const that = this;
+        that.send(that.options.group_id, {cmd: 'reload'})
+    }
+
     close(code = -1, reason = '客户端主动关闭') {
         const that = this;
         that.websocketInstance.close(Number(code), reason)
@@ -104,7 +146,6 @@ class DrawSocket {
         let {url, query} = that.options,
             queryString = '';
         query = Object.assign({}, query, new URLSearchParams(window.location.search))
-        console.log(query)
         if (!query.hasOwnProperty('client_id')) {
             query.client_id = Math.random().toString(36).substring(2) + Date.now().toString(36);
         }
