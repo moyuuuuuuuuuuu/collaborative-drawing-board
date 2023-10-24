@@ -95,11 +95,14 @@ class Drawing {
             that.listenDom.share.addEventListener('click', function () {
                 //组装url并复制到剪切板
                 let url = window.location.href;
-                if (url.includes('?')) {
-                    url += '&r=' + that.groupId
-                } else {
-                    url += '?r=' + that.groupId
+                if (!url.includes('r=')) {
+                    if (url.includes('?')) {
+                        url += '&r=' + that.groupId
+                    } else {
+                        url += '?r=' + that.groupId
+                    }
                 }
+
                 let input = document.createElement('input');
                 document.body.appendChild(input);
                 input.setAttribute('value', url);
