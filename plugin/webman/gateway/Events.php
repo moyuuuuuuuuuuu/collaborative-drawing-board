@@ -73,21 +73,20 @@ class Events
             );
         } else if ($data['cmd'] = 'getimg') {
             list($img, $client_id) = array_values($data['data']);
-            Gateway::sendToClient($client_id, json_encode([
-                'cmd'  => 'setimg',
-                'data' => [
-                    'img' => $img
-                ]
-            ]));
+            if (Gateway::isOnline($client_id)) {
+                Gateway::sendToClient($client_id, json_encode([
+                        'cmd'  => 'setimg',
+                        'data' => [
+                            'img' => $img
+                        ]
+                    ])
+                );
+            }
         }
     }
 
     public static function onClose($client_id)
     {
-        Gateway::sendToClient($client_id, json_encode([
-            'cmd'     => 'close',
-            'message' => '您已经离开频道不可再享受协作功能'
-        ]));
         $groupId = Gateway::getSession($client_id)['group_id'] ?? 0;
         Gateway::leaveGroup($client_id, $groupId);
         if ($groupId) {

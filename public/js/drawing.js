@@ -137,6 +137,7 @@ class Drawing {
         //移动端监听
         if (/Android/i.test(navigator.userAgent) || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
             that.canvas.addEventListener('mousedown', function () {
+                layer.msg('12123123')
                 let isPointing = false, startPoint;
                 that.canvas.ontouchstart = (e) => {
                     isPointing = true;
