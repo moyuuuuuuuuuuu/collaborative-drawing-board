@@ -32,7 +32,10 @@
     <button id="share" title="分享"><i class="iconfont icon-share"></i></button>
 </div>
 <div class="readyStatus "><i class="iconfont icon-dot"></i> <span>未连接</span></div>
-<div class="connect-num"><div><?= $roomId?>:当前人数</div><span>0</span>人</div>
+<div class="connect-num">
+    <div><?= $roomId?>:当前人数</div>
+    <span>0</span>人
+</div>
 </body>
 <script src="js/jquery.min.js?t=<?= time()?>"></script>
 <script src="layer/layer.js?t=<?= time()?>"></script>
@@ -41,7 +44,7 @@
 <script>
 
     var options = {
-            url: 'ws://127.0.0.1:7272',
+            url: 'ws://' + window.location.host + '/websocket',
             query: {
                 group_id: '<?= $roomId?>',
             },
