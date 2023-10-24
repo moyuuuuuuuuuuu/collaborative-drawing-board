@@ -152,7 +152,7 @@ class Drawing {
                         cmd: 'draw',
                         drawInfo: {
                             startPoint: startPoint,
-                            endPoint: endPoint,
+                            endPoint: newPoint,
                             clear: that.clear,
                             color: that.activeColor,
                             width: that.lWidth
@@ -182,7 +182,7 @@ class Drawing {
                         cmd: 'draw',
                         drawInfo: {
                             startPoint: startPoint,
-                            endPoint: endPoint,
+                            endPoint: newPoint,
                             clear: that.clear,
                             color: that.activeColor,
                             width: that.lWidth
