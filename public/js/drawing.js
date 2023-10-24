@@ -148,6 +148,16 @@ class Drawing {
                     let x = e.touches[0].clientX;
                     let y = e.touches[0].clientY;
                     let newPoint = {"x": x, "y": y};
+                    that.websocket.send(that.groupId, {
+                        cmd: 'draw',
+                        drawInfo: {
+                            startPoint: startPoint,
+                            endPoint: endPoint,
+                            clear: that.clear,
+                            color: that.activeColor,
+                            width: that.lWidth
+                        }
+                    })
                     that.drawLine(startPoint, newPoint, that.clear);
                     startPoint = newPoint;
                 }
@@ -168,6 +178,16 @@ class Drawing {
                     let x = e.clientX;
                     let y = e.clientY;
                     let newPoint = {"x": x, "y": y};
+                    that.websocket.send(that.groupId, {
+                        cmd: 'draw',
+                        drawInfo: {
+                            startPoint: startPoint,
+                            endPoint: endPoint,
+                            clear: that.clear,
+                            color: that.activeColor,
+                            width: that.lWidth
+                        }
+                    })
                     that.drawLine(startPoint, newPoint, that.clear);
                     startPoint = newPoint;
                 }
