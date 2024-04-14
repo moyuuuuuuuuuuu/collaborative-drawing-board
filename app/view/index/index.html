@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="css/style.css?t=<?= time()?>">
 </head>
 <body>
+<div class="cursor" id="cursor">
+
+</div>
 <canvas id="drawing-board"></canvas>
 <div class="color-group">
     <ul>
@@ -27,7 +30,7 @@
     <button id="brush" class="active" title="画笔"><i class="iconfont icon-huabi"></i></button>
     <button id="eraser" title="橡皮擦"><i class="iconfont icon-xiangpica"></i></button>
     <button id="clear" title="清空"><i class="iconfont icon-clean"></i></button>
-    <!--    <button id="undo" title="撤销"><i class="iconfont icon-undo"></i></button>-->
+    <button id="undo" title="撤销"><i class="iconfont icon-undo"></i></button>
     <button id="save" title="保存"><i class="iconfont icon-save"></i></button>
     <button id="share" title="分享"><i class="iconfont icon-share"></i></button>
 </div>
@@ -42,11 +45,13 @@
 <script src="js/drawing.js?t=<?= time()?>"></script>
 <script src="js/drawsocket.js?t=<?= time()?>"></script>
 <script>
-    let host = 'ws://' + window.location.host + '/websocket'
-    var options = {
+    var url = '127.0.0.1:7272',//window.location.host,
+        host = 'ws://' + url + '/websocket',
+        options = {
             url: host,
             query: {
                 group_id: '<?= $roomId?>',
+                is_owner: '<?= $isOwner?>',
             },
             group_id: '<?= $roomId?>',
             closeCallback: function (res, reason = '') {

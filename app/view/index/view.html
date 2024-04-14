@@ -1,14 +1,110 @@
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="shortcut icon" href="/favicon.ico"/>
-    <title>webman</title>
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <title>在canvas上面获取特定位置的base64信息</title>
 </head>
+<style>
+    #origin_canvas {
+        width: 200px;
+        height: 200px;
+
+    }
+</style>
+
 <body>
-hello <?=htmlspecialchars($name)?>
+<div>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <button id="undoBtn">撤销</button>
+    <button id="redoBtn">重做</button>
+    <button id="saveBtn">保存</button>
+    <img id="resultImg">
+
+</div>
+<script>
+    const canvas = document.getElementById('canvas');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const context = canvas.getContext('2d');
+    const resultImg = document.getElementById('resultImg');
+
+    let undoList = []; // 用于保存所有操作，用于撤销和重做
+    let redoList = []; // 用于保存所有撤销的操作，用于重做
+
+    let isDrawing = false;
+    let currentPath = null;
+
+    // 鼠标按下事件
+    canvas.addEventListener('mousedown', e => {
+        isDrawing = true;
+        currentPath = {
+            color: context.strokeStyle,
+            width: context.lineWidth,
+            points: [{ x: e.offsetX, y: e.offsetY }]
+        };
+    });
+
+    // 鼠标移动事件
+    canvas.addEventListener('mousemove', e => {
+        if (!isDrawing) return;
+        currentPath.points.push({ x: e.offsetX, y: e.offsetY });
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawPaths([...undoList, currentPath]);
+    });
+
+    // 鼠标松开事件
+    canvas.addEventListener('mouseup', e => {
+        isDrawing = false;
+        undoList.push(currentPath);
+        redoList = [];
+    });
+
+    // 鼠标离开事件
+    canvas.addEventListener('mouseleave', e => {
+        isDrawing = false;
+    });
+
+    // 撤销按钮点击事件
+    undoBtn.addEventListener('click', e => {
+        if (undoList.length === 0) return;
+        const lastPath = undoList.pop();
+        redoList.push(lastPath);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawPaths(undoList);
+    });
+
+    // 重做按钮点击事件
+    redoBtn.addEventListener('click', e => {
+        if (redoList.length === 0) return;
+        const lastPath = redoList.pop();
+        undoList.push(lastPath);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawPaths(undoList);
+    });
+
+    // 保存按钮点击事件
+    saveBtn.addEventListener('click', e => {
+        const dataUrl = canvas.toDataURL();
+        resultImg.src = dataUrl;
+    });
+
+    // 画所有的路径
+    function drawPaths(paths) {
+        paths.forEach(path => {
+            context.beginPath();
+            context.strokeStyle = path.color;
+            context.lineWidth = path.width;
+            context.moveTo(path.points[0].x, path.points[0].y);
+            path.points.slice(1).forEach(point => {
+                context.lineTo(point.x, point.y);
+            });
+            context.stroke();
+        });
+    }
+
+</script>
 </body>
+
 </html>

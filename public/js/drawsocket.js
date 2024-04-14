@@ -61,7 +61,6 @@ class DrawSocket {
     onOpen(res) {
         const that = this;
         that.options.connectedCallback && this.options.connectedCallback(res)
-        // that.websocketInstance.send(JSON.stringify({group_id: that.options.group_id, data: {}}));
     }
 
     onMessage(res) {
@@ -97,6 +96,9 @@ class DrawSocket {
         } else if (messageData.cmd == 'setimg') {
             this.draw.drawWithImg(messageData.data.img)
             layer.closeAll()
+        } else if (messageData.cmd == 'undo') {
+            that.draw.doneUndo(messageData.data.drawInfo)
+
         }
     }
 

@@ -2,20 +2,20 @@
 
 namespace app\tool\websocket;
 
-use app\tool\websocket\Package;
+use support\Redis;
 
 class Draw extends Package
 {
-    public $cmd = 'draw';
-
-    public $data = [
-        'type' => '',
-        'data' => []
-    ];
-
-    public function __construct($type, $data)
+    public function output(array $message = [])
     {
-        $this->data['type'] = $type;
-        $this->data['data'] = $data;
+        $trailId = $message['trailId'] ?? 0;
+        unset($message['trailId']);
+        //记录绘画历史
+        if (!$trailId) {
+            return;
+        }
+        Redis::lPush('trail:' . $trailId, json_encode($message['drawInfo'] ?? []));
+        parent::output($message);
+
     }
 }

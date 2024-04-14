@@ -2,23 +2,19 @@
 
 namespace app\tool\websocket;
 
+use GatewayWorker\Lib\Gateway;
+
 abstract class Package
 {
-    public $code = 0;
 
-    public $cmd     = '';
-    public $data    = null;
-    public $message = '';
-
-    public function output(string $cmd = '', int $code = 0, string $message = '', $data = null): string
+    public function __construct($groupId, $clientId)
     {
-        $cmd      = $cmd ?? $this->cmd;
-        $pushData = [
-            'code'    => $code,
-            'message' => $message,
-            'cmd'     => $cmd,
-            'data'    => $data
-        ];
-        return json_encode($pushData);
+        $this->groupId  = $groupId;
+        $this->clientId = $clientId;
+    }
+
+    public function output(array $message = [])
+    {
+        Gateway::sendToGroup($this->groupId, json_encode($message), [$this->clientId]);
     }
 }

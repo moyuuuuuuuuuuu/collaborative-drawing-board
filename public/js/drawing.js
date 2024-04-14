@@ -2,7 +2,7 @@ class Drawing {
     canvas = null
     ctx = null
     activeColor = 'black'
-    lWidth = 4
+    lWidth = 5
     groupId = 0
     clear = false
     listenDom = {
@@ -11,12 +11,24 @@ class Drawing {
         clear: document.getElementById('clear'),
         aColorBtn: document.getElementsByClassName('color-item'),
         save: document.getElementById('save'),
-        // undo: document.getElementById('undo'),
+        undo: document.getElementById('undo'),
         range: document.getElementById('range'),
         share: document.getElementById('share'),
+        cursor: document.getElementById('cursor')
     }
-    historyData = []
+    history = {}
     deviceWidth = window.screen.width
+    isPainting = false
+    isMovingScreen = false
+    trailId = ''
+    originalPoint = {
+        x: 0,
+        y: 0
+    }
+    move = {
+        x: 0,
+        y: 0
+    }
 
     constructor(websocket, canvas, groupId = 0) {
         const that = this;
@@ -28,6 +40,7 @@ class Drawing {
 
     addListener() {
         const that = this;
+
         //橡皮擦监听
         if (that.listenDom.hasOwnProperty('eraser')) {
             that.listenDom.eraser.addEventListener('click', function () {
@@ -80,15 +93,14 @@ class Drawing {
         //撤销监听
         if (that.listenDom.hasOwnProperty('undo')) {
             that.listenDom.undo.addEventListener('click', function () {
-                if (that.historyData.length < 1) return false;
-                that.ctx.putImageData(that.historyData[that.historyData.length - 1], 0, 0);
-                that.historyData.pop()
+                if (that.history.length < 1) return false;
+                that.undo();
             });
         }
         //线条粗细监听
         if (that.listenDom.hasOwnProperty('range')) {
             that.listenDom.range.addEventListener('change', function () {
-                that.lWidth = this.value;
+                that.changePaintRange(this.value)
             });
         }
         //分享监听
@@ -114,12 +126,66 @@ class Drawing {
                 }
             });
         }
-    }
 
-    clearCanvas() {
-        const that = this;
-        that.ctx.clearRect(0, 0, that.canvas.width, that.canvas.height);
-        that.setCanvasBg();
+
+        let oldMove = {x: 0, y: 0};
+        //鼠标移动及canvas绘画监听
+        if (document.body.ontouchstart !== undefined) {
+            document.body.addEventListener('touchstart', function (e) {
+                that.touchStart(e);
+                oldMove = that.move;
+                setTimeout(that.longPress(e), 500);
+            });
+            that.canvas.addEventListener('touchmove', function (e) {
+                if (that.listenDom.cursor) {
+                    that.corsorMove(e.pageX, e.pageY);
+                }
+                if (that.isPainting) {
+                    that.touchMove(e);
+                } else if (that.isMovingScreen) {
+                    //平移画布
+                    that.movingScreen(e, oldMove);
+                }
+                e.preventDefault();
+            });
+            document.body.addEventListener('touchend', function (e) {
+                that.touchend(e);
+            });
+        } else {
+            document.body.addEventListener('mousedown', function (e) {
+                that.touchStart(e);
+
+                oldMove = that.move;
+            });
+            that.canvas.addEventListener('mousemove', function (e) {
+                if (that.listenDom.cursor) {
+                    that.corsorMove(e.pageX, e.pageY);
+                }
+                if (that.isPainting) {
+                    that.touchMove(e);
+                } else if (that.isMovingScreen) {
+                    that.movingScreen(e, oldMove);
+                }
+                e.preventDefault();
+            });
+            document.body.addEventListener('mouseup', function (e) {
+                that.touchend(e);
+            });
+        }
+
+        document.onkeydown = function (e) {
+            var evtobj = window.event ? event : e
+            if (evtobj.keyCode == 90 && evtobj.ctrlKey) {
+                that.undo()
+            } else if (evtobj.keyCode == 83 && evtobj.ctrlKey) {
+                that.saveImg();
+            }
+        };
+
+        document.oncontextmenu = function (e) {
+            e.preventDefault()
+        }
+
     }
 
     initCanvas(canvas) {
@@ -129,86 +195,113 @@ class Drawing {
         //设置白色背景色
         that.setCanvasBg();
         that.autoSize();
-        //划线监听
-        that.listenUserDraw();
     }
 
-    listenUserDraw() {
-        const that = this;
-        let isPainting = false, startPoint = {};
-        if (document.body.ontouchstart !== undefined) {
-            that.canvas.ontouchstart = function (e) {
-                isPainting = true;
-                let x = e.touches[0].clientX;
-                let y = e.touches[0].clientY;
-                startPoint = {"x": x, "y": y};
-            };
-            that.canvas.ontouchmove = function (e) {
+    changePaintRange(value) {
+        let that = this;
+        that.lWidth = value;
+        that.listenDom.cursor.style.width = value + 'px';
+        that.listenDom.cursor.style.height = value + 'px';
+    }
 
-                if (isPainting) {
-                    let x = e.touches[0].clientX;
-                    let y = e.touches[0].clientY;
-                    let newPoint = {"x": x, "y": y};
-                    that.websocket.send(that.groupId, {
-                        cmd: 'draw',
-                        drawInfo: {
-                            startPoint: startPoint,
-                            endPoint: newPoint,
-                            clear: that.clear,
-                            color: that.activeColor,
-                            width: that.lWidth,
-                            deviceWidth: window.screen.width
-                        }
-                    })
-                    that.drawLine(startPoint, newPoint, that.clear);
-                    startPoint = newPoint;
-                }
-            };
-
-            that.canvas.ontouchend = function () {
-                isPainting = false;
-            }
-        } else {
-            that.canvas.onmousedown = function (e) {
-                isPainting = true;
-                let x = e.clientX;
-                let y = e.clientY;
-                startPoint = {"x": x, "y": y};
-            };
-            that.canvas.onmousemove = function (e) {
-                if (isPainting) {
-                    let x = e.clientX;
-                    let y = e.clientY;
-                    let newPoint = {"x": x, "y": y};
-                    that.websocket.send(that.groupId, {
-                        cmd: 'draw',
-                        drawInfo: {
-                            startPoint: startPoint,
-                            endPoint: newPoint,
-                            clear: that.clear,
-                            color: that.activeColor,
-                            width: that.lWidth,
-                            deviceWidth: window.screen.width
-                        }
-                    })
-                    that.drawLine(startPoint, newPoint, that.clear);
-                    startPoint = newPoint;
-                }
-            };
-
-            that.canvas.onmouseup = function () {
-                isPainting = false;
-            };
-
-            that.canvas.mouseleave = function () {
-                isPainting = false;
-            }
+    movingScreen(e, move) {
+        let that = this,
+            x = e.clientX || e.touches[0].clientX,
+            y = e.clientY || e.touches[0].clientY,
+            startPoint = that.startPoint,
+            moveX = x - startPoint.x,
+            moveY = y - startPoint.y;
+        that.move = {
+            x: moveX,
+            y: moveY
         }
+        that.ctx.restore();
+    }
 
+    longPress(e) {
+        let that = this,
+            x = e.clientX || e.touches[0].clientX,
+            y = e.clientY || e.touches[0].clientY;
+        that.isPainting = false;
+        that.isMovingScreen = true;
+        that.startPoint = {"x": x, "y": y};
+    }
+
+    touchStart(e) {
+        let that = this,
+            x = e.clientX || e.touches[0].clientX,
+            y = e.clientY || e.touches[0].clientY;
+        that.isPainting = !e.altKey || false;
+        that.isMovingScreen = e.altKey || false;
+        that.startPoint = {"x": x, "y": y};
+        if (that.isPainting) {
+            that.trailId = Math.random().toString(36).substr(2, 9)
+        }
+        if (that.isMovingScreen) {
+            that.canvas.style.background = 'rgba(0,0,0,0.1)'
+            that.canvas.style.border = '1px dashed #000'
+        }
+    }
+
+    touchMove(e) {
+        let that = this,
+            x = e.clientX,
+            y = e.clientY,
+            startPoint = that.startPoint,
+            newPoint = {"x": x, "y": y},
+            trailId = that.trailId,
+            drawInfo = {
+                startPoint: startPoint,
+                endPoint: newPoint,
+                clear: that.clear,
+                color: that.activeColor,
+                width: that.lWidth,
+                deviceWidth: window.screen.width
+            };
+        // that.ctx.clearRect(0, 0, that.canvas.width, that.canvas.height);
+        that.websocket.send(that.groupId, {
+            cmd: 'draw',
+            drawInfo: drawInfo,
+            trailId: trailId
+        })
+        that.drawLine(startPoint, newPoint, that.clear);
+        that.setHistory(trailId, drawInfo)
+        that.startPoint = newPoint;
+    }
+
+    touchend(e) {
+        let that = this;
+        if (that.isMovingScreen) {
+            //获取画布数据
+            let img = that.saveImg(true);
+            that.canvas.width = that.canvas.width + that.move.x;
+            that.canvas.height = that.canvas.height + that.move.y;
+            that.drawWithImg(img);
+            that.canvas.style.background = 'white';
+            that.canvas.style.border = 'none'
+        }
+        that.isPainting = false;
+        that.isMovingScreen = false;
+        that.startPoint = null;
+    }
+
+    corsorMove(x, y) {
+        let that = this;
+        x = (x - that.lWidth / 2) + 'px';
+        y = (y - that.lWidth / 2) + 'px';
+        that.listenDom.cursor.style.left = x;
+        that.listenDom.cursor.style.top = y;
+    }
+
+    clearCanvas() {
+        const that = this;
+        that.ctx.clearRect(0, 0, that.canvas.width, that.canvas.height);
+        that.setCanvasBg();
     }
 
     drawLine(startPoint, endPoint, clear, color = '', width = this.lWidth, deviceWidth = this.deviceWidth) {
-        const that = this;
+        const that = this, {move} = that;
+
         that.ctx.beginPath();
         let p = deviceWidth / that.canvas.width;
         startPoint = {
@@ -224,23 +317,24 @@ class Drawing {
         that.ctx.lineCap = "round";
         that.ctx.lineJoin = "round";
         if (clear) {
-            this.ctx.save();
-            this.ctx.globalCompositeOperation = "destination-out";
-            this.ctx.lineTo(endPoint.x, endPoint.y);
-            this.ctx.stroke();
-            this.ctx.closePath();
-            this.ctx.clip();
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.restore();
+            that.ctx.save();
+            that.ctx.globalCompositeOperation = "destination-out";
+            that.ctx.lineTo(endPoint.x, endPoint.y);
+            that.ctx.stroke();
+            that.ctx.closePath();
+            that.ctx.clip();
+            that.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            that.ctx.restore();
         } else {
             that.ctx.strokeStyle = color || that.activeColor;
-            that.ctx.fillStyle = color || that.activeColor;
-            this.ctx.save();
-            this.ctx.lineTo(endPoint.x, endPoint.y);
-            this.ctx.stroke();
-            this.ctx.closePath();
-            this.ctx.restore();
+            that.ctx.save();
+            that.ctx.lineTo(endPoint.x, endPoint.y);
+            that.ctx.stroke();
+            that.ctx.closePath();
+            that.ctx.restore();
         }
+        that.ctx.save();
+
     }
 
     autoSize() {
@@ -253,9 +347,10 @@ class Drawing {
 
             that.canvas.width = pageWidth;
             that.canvas.height = pageHeight;
-            if (that.websocket) {
+            /*if (that.websocket) {
                 that.websocket.send(that.groupId, {cmd: 'reload'})
-            }
+            }*/
+            that.drawWithImg(that.saveImg(true))
         }
 
         window.onresize = function () {
@@ -285,10 +380,41 @@ class Drawing {
 
     drawWithImg(img) {
         const that = this;
-        var image = new Image();
+        let image = new Image();
         image.onload = function () {
-            that.ctx.drawImage(image, 0, 0);
+            that.ctx.drawImage(image, that.move.x, that.move.y);
         };
         image.src = img;
+    }
+
+    setHistory(key, data) {
+        let that = this;
+        if (!that.history.hasOwnProperty(key)) {
+            that.history[key] = []
+        }
+        that.history[key].push(data)
+    }
+
+    undo(lastKey = null) {
+        let that = this;
+        lastKey = lastKey || Object.keys(that.history).pop();
+        let latestHistory = that.history[lastKey];
+        if (!latestHistory) return false;
+        delete that.history[lastKey]
+        that.websocket.send(that.groupId, {
+            cmd: 'undo',
+            trailId: lastKey
+        })
+        that.doneUndo(latestHistory)
+    }
+
+    doneUndo(latestHistory) {
+        let that = this;
+        latestHistory.forEach(function (item) {
+            let isClear = item.clear,
+                color = isClear ? that.activeColor : '#ffffff';
+            that.drawLine(item.startPoint, item.endPoint, false, color, item.width + 0.5, item.deviceWidth)
+        })
+
     }
 }

@@ -27,8 +27,9 @@ class Events
         Gateway::bindUid($client_id, $data['get']['client_id']);
         Gateway::joinGroup($client_id, $data['get']['group_id']);
         Gateway::setSession($client_id, [
-            'client_id'    => $data['get']['client_id'],
-            'group_id'     => $data['get']['group_id']
+            'client_id' => $data['get']['client_id'],
+            'group_id'  => $data['get']['group_id'],
+            'is_owner'  => $data['get']['is_owner'] ?? false,
         ]);
         Gateway::sendToClient($client_id, json_encode([
                 'cmd'     => 'join',
@@ -49,42 +50,21 @@ class Events
         ]), [$client_id]);
     }
 
-    public static function onMessage($client_id, $message)
+    public static function onMessage($clientId, $message)
     {
-        //cmd connect,draw
         $data    = json_decode($message, true);
         $groupId = $data['groupId'] ?? 0;
-        if ($data['cmd'] == 'draw') {
-            Gateway::sendToGroup($groupId, $message, [$client_id]);
-        } else if ($data['cmd'] == 'clear') {
-            Gateway::sendToGroup($groupId, $message, [$client_id]);
-        } else if ($data['cmd'] == 'reload') {
-            $clientIdList = Gateway::getClientIdListByGroup($groupId);
-            $clientId     = array_shift($clientIdList);
-            while ($clientId == $client_id || !Gateway::isOnline($clientId)) {
-                $clientId = array_shift($clientIdList);
-            }
-            Gateway::sendToClient($clientId, json_encode([
-                    'cmd'  => 'getimg',
-                    'data' => [
-                        'client_id' => $client_id
-                    ]
-                ])
-            );
-        } else if ($data['cmd'] = 'getimg') {
-            list($img, $client_id) = array_values($data['data']);
-            if (Gateway::isOnline($client_id)) {
-                Gateway::sendToClient($client_id, json_encode([
-                        'cmd'  => 'setimg',
-                        'data' => [
-                            'img' => $img
-                        ]
-                    ])
-                );
-            }
-        } else if ($data['type'] == 'ping') {
-            Gateway::sendToClient($client_id, '{"type":"pong"}');
+        /**
+         * @var $class \app\tool\websocket\Package
+         */
+        $class = 'app\\tool\\websocket\\' . ucfirst($data['cmd']);
+        if (class_exists($class)) {
+            $class = new $class($groupId, $clientId);
+        } else {
+            Gateway::sendToClient($clientId, json_encode(['code' => 1002, 'msg' => '未知命令', 'cmd' => 'close']));
+            return;
         }
+        $class->output($data);
     }
 
     public static function onClose($client_id)

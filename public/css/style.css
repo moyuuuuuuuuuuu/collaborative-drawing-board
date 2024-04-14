@@ -5,14 +5,23 @@
 }
 
 body {
-    overflow: hidden
+    overflow: hidden;
+}
+
+.cursor {
+    position: fixed;
+    width: 5px;
+    height: 5px;
+    z-index: 999;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 #drawing-board {
     background: white;
     position: fixed;
     display: block;
-    cursor: crosshair;
+    cursor: none;
 }
 
 .tools {
