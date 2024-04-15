@@ -21,6 +21,10 @@ class Drawing {
     isPainting = false
     isMovingScreen = false
     trailId = ''
+    originalPoint = {
+        x: 0,
+        y: 0
+    }
     move = {
         x: 0,
         y: 0
@@ -122,15 +126,17 @@ class Drawing {
                 }
             });
         }
+
+
+        let oldMove = {x: 0, y: 0};
         //鼠标移动及canvas绘画监听
         if (document.body.ontouchstart !== undefined) {
-            let oldMove = {x: 0, y: 0};
-            document.body.addEventListener('touchstart', (e) => {
+            document.body.addEventListener('touchstart', function (e) {
                 that.touchStart(e);
                 oldMove = that.move;
                 setTimeout(that.longPress(e), 500);
             });
-            that.canvas.addEventListener('touchmove', (e) => {
+            that.canvas.addEventListener('touchmove', function (e) {
                 if (that.listenDom.cursor) {
                     that.corsorMove(e.pageX, e.pageY);
                 }
@@ -142,17 +148,16 @@ class Drawing {
                 }
                 e.preventDefault();
             });
-            document.body.addEventListener('touchend', (e) => {
+            document.body.addEventListener('touchend', function (e) {
                 that.touchend(e);
             });
         } else {
-            let oldMove = {x: 0, y: 0};
-            document.body.addEventListener('mousedown', (e) => {
+            document.body.addEventListener('mousedown', function (e) {
                 that.touchStart(e);
 
                 oldMove = that.move;
             });
-            that.canvas.addEventListener('mousemove', (e) => {
+            that.canvas.addEventListener('mousemove', function (e) {
                 if (that.listenDom.cursor) {
                     that.corsorMove(e.pageX, e.pageY);
                 }
@@ -161,25 +166,25 @@ class Drawing {
                 } else if (that.isMovingScreen) {
                     that.movingScreen(e, oldMove);
                 }
+                e.preventDefault();
             });
-            document.body.addEventListener('mouseup', (e) => {
+            document.body.addEventListener('mouseup', function (e) {
                 that.touchend(e);
             });
         }
 
-        document.addEventListener('keydown', (e) => {
+        document.onkeydown = function (e) {
             var evtobj = window.event ? event : e
             if (evtobj.keyCode == 90 && evtobj.ctrlKey) {
                 that.undo()
             } else if (evtobj.keyCode == 83 && evtobj.ctrlKey) {
                 that.saveImg();
             }
-        })
+        };
 
-        document.addEventListener('contextmenu', (e) => {
+        document.oncontextmenu = function (e) {
             e.preventDefault()
-
-        })
+        }
 
     }
 
@@ -210,7 +215,7 @@ class Drawing {
             x: moveX,
             y: moveY
         }
-        // that.ctx.restore();
+        that.ctx.restore();
     }
 
     longPress(e) {
@@ -272,8 +277,8 @@ class Drawing {
             that.canvas.width = that.canvas.width + that.move.x;
             that.canvas.height = that.canvas.height + that.move.y;
             that.drawWithImg(img);
-            // that.canvas.style.background = 'white';
-            // that.canvas.style.border = 'none'
+            that.canvas.style.background = 'white';
+            that.canvas.style.border = 'none'
         }
         that.isPainting = false;
         that.isMovingScreen = false;
@@ -408,7 +413,7 @@ class Drawing {
         latestHistory.forEach(function (item) {
             let isClear = item.clear,
                 color = isClear ? that.activeColor : '#ffffff';
-            that.drawLine(item.startPoint, item.endPoint, false, color, item.width + 1.5)
+            that.drawLine(item.startPoint, item.endPoint, false, color, item.width + 0.5, item.deviceWidth)
         })
 
     }

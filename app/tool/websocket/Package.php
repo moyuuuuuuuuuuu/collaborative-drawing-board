@@ -13,8 +13,8 @@ abstract class Package
         $this->clientId = $clientId;
     }
 
-    public function output(array $message = [])
+    public function output(array $message = [], $exincludeClientId = [])
     {
-        Gateway::sendToGroup($this->groupId, json_encode($message), [$this->clientId]);
+        Gateway::sendToGroup($this->groupId, json_encode($message), $exincludeClientId);
     }
 }

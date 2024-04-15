@@ -7,7 +7,7 @@ use GatewayWorker\Lib\Gateway;
 
 class Ping extends Package
 {
-    public function output(array $message = [])
+    public function output(array $message = [], $ex = [])
     {
         Gateway::sendToClient($this->clientId, '{"type":"pong"}');
     }

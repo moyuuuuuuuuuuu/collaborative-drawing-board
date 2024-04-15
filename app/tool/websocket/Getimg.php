@@ -7,11 +7,11 @@ use GatewayWorker\Lib\Gateway;
 
 class Getimg extends Package
 {
-    public function output(array $message = [])
+    public function output(array $message = [], $ex)
     {
-        list($img, $client_id) = array_values($message['data']);
-        if (Gateway::isOnline($client_id)) {
-            Gateway::sendToClient($client_id, json_encode([
+        list($img, $clientId) = array_values($message['data']);
+        if (Gateway::isOnline($clientId)) {
+            Gateway::sendToClient($clientId, json_encode([
                     'cmd'  => 'setimg',
                     'data' => [
                         'img' => $img

@@ -67,10 +67,13 @@ class Events
         $class->output($data);
     }
 
-    public static function onClose($client_id)
+    public static function onClose($clientId)
     {
-        $groupId = Gateway::getSession($client_id)['group_id'] ?? 0;
-        Gateway::leaveGroup($client_id, $groupId);
+        $groupId = Gateway::getSession($clientId)['group_id'] ?? 0;
+        //清楚画笔轨迹
+        $trailIdList = Redis::sMembers(sprintf('drawing:history:group:%s:client:%s', $groupId, $clientId));
+        Redis::del(...$trailIdList);
+        Gateway::leaveGroup($clientId, $groupId);
         if ($groupId) {
             Gateway::sendToGroup($groupId, json_encode([
                 'cmd'     => 'leave',
@@ -78,7 +81,7 @@ class Events
                 'data'    => [
                     'num' => Gateway::getClientCountByGroup($groupId)
                 ]
-            ]), [$client_id]);
+            ]), [$clientId]);
         }
 
     }

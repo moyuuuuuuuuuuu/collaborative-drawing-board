@@ -7,7 +7,7 @@ use GatewayWorker\Lib\Gateway;
 
 class Reload extends Package
 {
-    public function output(array $message = [])
+    public function output(array $message = [], $ex = [])
     {
         $clientIdList = Gateway::getClientIdListByGroup($this->groupId);
         $clientId     = array_shift($clientIdList);
@@ -19,6 +19,6 @@ class Reload extends Package
             'data' => [
                 'client_id' => $this->clientId
             ]
-        ]);
+        ], $ex);
     }
 }
