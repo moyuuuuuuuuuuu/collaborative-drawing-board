@@ -136,9 +136,9 @@
             , util = layui.util
             , userListSelector = $('#userList')
             , ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${clientId}/${userId}`);
-        console
         let isErasing = false
-            , drawing = false
+            , isDragging = false
+            , isDrawing = false
             , isManager = false
             , actionStack = new ActionStack()
             , redoStack = new RedoStack()
@@ -186,10 +186,10 @@
         }, 1000 * 60 * 10)
 
         setInterval(() => {
-            utilEvent.snapShot();
+            events.snapShot();
         }, 1000 * 15)
 
-        const utilEvent = {
+        const events = {
             pen: () => {
                 isErasing = false
                 $('#pencil').css({
@@ -220,7 +220,7 @@
                             send('undo', {strokeId: strokeId,})
                         }
                     }
-                    utilEvent.redrawAll();
+                    events.redrawAll();
                 } catch (e) {
                     console.warn(e)
                     if (isShowMsg) {
@@ -246,7 +246,7 @@
                             send('redo', {strokeId: strokeId})
                         }
                     }
-                    utilEvent.redrawAll();
+                    events.redrawAll();
                 } catch (e) {
                     console.warn(e)
                     if (isShowMsg) {
@@ -315,7 +315,7 @@
                 });
             }
         };
-        util.on('lay-on', utilEvent)
+        util.on('lay-on', events)
 
         util.on('lay-active', {
             remove: (othis, e) => {
@@ -333,7 +333,7 @@
                 elem: '#colorpicker',
                 color: '#000000', // 设置默认色
                 done: function (c) { // 选择完毕的回调
-                    utilEvent.colorpicker(c)
+                    events.colorpicker(c)
                 }
             }),
             sliderEle = slider.render({
@@ -345,41 +345,41 @@
                 type: 'vertical',
                 height: 200,
                 done: value => {
-                    utilEvent.slider(value)
+                    events.slider(value)
                 }
             });
         window.onresize = resizeCanvas;
         resizeCanvas(true);
         document.addEventListener('keydown', function (event) {
             if (event.key === 'z' && event.ctrlKey) {
-                utilEvent.undo(clientId);
+                events.undo(clientId);
             }
             if (event.key === 'b') {
-                utilEvent.pen();
+                events.pen();
             }
             if (event.key === 'e') {
-                utilEvent.eraser();
+                events.eraser();
             }
             if (event.key === 'y' && event.ctrlKey) {
-                utilEvent.redo(clientId);
+                events.redo(clientId);
             }
             if (event.key === 'c' && event.ctrlKey) {
-                utilEvent.share();
+                events.share();
             }
             if (event.key === '=') {
                 size = size + 1
                 sliderEle.setValue(size);
-                utilEvent.slider(size)
+                events.slider(size)
             }
             if (event.key === '-') {
                 size = size - 1
                 sliderEle.setValue(size);
-                utilEvent.slider(size)
+                events.slider(size)
             }
             element.render();
         });
         canvas.addEventListener('mousedown', e => {
-            drawing = true;
+            isDrawing = true;
             currentPath = {userId: clientId, strokeId: null, points: []};
             currentPath.strokeId = generateSnowId()
             ctx.beginPath();
@@ -396,7 +396,7 @@
         });
         canvas.addEventListener('mousemove', e => {
             lastDrawTime = Date.now();
-            if (drawing) {
+            if (isDrawing) {
                 const x = e.offsetX
                     , y = e.offsetY
                     , drawColor = (isErasing ? '#FFFFFF' : color);
@@ -426,7 +426,7 @@
             })
         });
         canvas.addEventListener('mouseup', () => {
-            if (drawing && currentPath.points.length > 0) {
+            if (isDrawing && currentPath.points.length > 0) {
                 send('draw', {
                     isEnd: true,
                     strokeId: currentPath.strokeId
@@ -435,14 +435,14 @@
                 currentPath = {userId: clientId, strokeId: null, points: []};
             }
             strokeId = null
-            drawing = false;
+            isDrawing = false;
             ctx.beginPath();
         });
 
         function resizeCanvas(isFirst = false) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            utilEvent.redrawAll()
+            events.redrawAll()
         }
 
         function send(cmd, data, binaryBuffer = null) {
@@ -527,7 +527,7 @@
                     });
                 })
                 if (reDraw) {
-                    utilEvent.redrawAll()
+                    events.redrawAll()
                 }
             },
             cursor: (message, data) => {
@@ -604,8 +604,8 @@
                 };
                 img.src = URL.createObjectURL(new Blob([blob]));
             },
-            doUndo: (message, data) => utilEvent.undo(data.clientId, false, false),
-            doRedo: (message, data) => utilEvent.redo(data.clientId, false, false)
+            doUndo: (message, data) => events.undo(data.clientId, false, false),
+            doRedo: (message, data) => events.redo(data.clientId, false, false)
         };
         ws.onmessage = event => {
             if (event.data instanceof Blob) {
@@ -649,7 +649,7 @@
         };
         ws.onclose = event => {
             // 关闭 WebSocket 连接时触发 ,导出canvas
-            utilEvent.snapShot();
+            events.snapShot();
 
             layer.msg('连接已断开');
         };
