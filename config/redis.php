@@ -15,15 +15,15 @@
 return [
     'default' => [
         'password' => getenv('REDIS_PASSWORD'),
-        'host' => getenv('REDIS_HOST'),
-        'port' => getenv('REDIS_PORT'),
+        'host'     => getenv('REDIS_HOST'),
+        'port'     => getenv('REDIS_PORT'),
         'database' => getenv('REDIS_DATABASE'),
-        'pool' => [
-            'max_connections' => getenv('REDIS_POOL_MAX_CONNECTIONS'),
-            'min_connections' => getenv('REDIS_POOL_MIN_CONNECTIONS'),
-            'wait_timeout' => getenv('REDIS_POOL_WAIT_TIMEOUT'),
-            'idle_timeout' => getenv('REDIS_POOL_IDLE_TIMEOUT'),
-            'heartbeat_interval' => getenv('REDIS_POOL_HEARTBEAT_INTERVAL'),
+        'pool'     => [
+            'max_connections'    => (int)getenv('REDIS_POOL_MAX_CONNECTIONS'),
+            'min_connections'    => (int)getenv('REDIS_POOL_MIN_CONNECTIONS'),
+            'wait_timeout'       => (int)getenv('REDIS_POOL_WAIT_TIMEOUT'),
+            'idle_timeout'       => (int)getenv('REDIS_POOL_IDLE_TIMEOUT'),
+            'heartbeat_interval' => (int)getenv('REDIS_POOL_HEARTBEAT_INTERVAL'),
         ],
     ]
 ];

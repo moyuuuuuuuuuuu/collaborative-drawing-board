@@ -2,9 +2,7 @@
 
 namespace app\service\draw\driver;
 
-use app\service\draw\Messager;
-use app\service\draw\helper\LineSegment;
-use app\service\draw\RedisKeyName;
+use app\service\draw\{helper\LineSegment, RedisKeyName, Messager};
 use Workerman\Connection\TcpConnection;
 use Webman\RedisQueue\Client;
 
@@ -42,7 +40,7 @@ class Draw extends Package
                         $this->data['strokeId'] => LineSegment::getPointsOfStroke($roomId, $clientId, $this->data['strokeId'])
                     ],
                 ],
-                'reDraw'  => false,
+                'reDraw'     => false,
             ], [$clientId]);
         }
     }

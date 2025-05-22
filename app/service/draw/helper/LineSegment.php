@@ -2,8 +2,7 @@
 
 namespace app\service\draw\helper;
 
-use app\service\draw\RedisKeyName;
-use app\service\draw\RoomManager;
+use app\service\draw\{RedisKeyName,RoomManager};
 use support\Redis;
 
 class LineSegment

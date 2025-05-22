@@ -3,9 +3,7 @@
 namespace app\service\draw\driver;
 
 use app\model\RoomMember;
-use app\service\draw\helper\SnapShot;
-use app\service\draw\Messager;
-use app\service\draw\RoomManager;
+use app\service\draw\{RoomManager, Messager, helper\SnapShot};
 use Webman\RedisQueue\Client;
 use Workerman\Connection\TcpConnection;
 

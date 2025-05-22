@@ -2,9 +2,7 @@
 
 namespace app\service\draw\driver;
 
-use app\service\draw\driver\Package;
-use app\service\draw\Messager;
-use app\service\draw\RoomManager;
+use app\service\draw\{RoomManager,Messager};
 use Workerman\Connection\TcpConnection;
 
 /**

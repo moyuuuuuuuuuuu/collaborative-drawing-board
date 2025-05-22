@@ -3,7 +3,6 @@
 namespace app\service\draw\driver;
 
 use app\model\RoomMember;
-use app\service\draw\driver\Package;
 use app\service\draw\RoomManager;
 use Workerman\Connection\TcpConnection;
 

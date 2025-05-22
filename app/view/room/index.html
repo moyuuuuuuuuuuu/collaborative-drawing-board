@@ -15,12 +15,14 @@
 
         canvas {
             display: block;
+            cursor: none;
         }
 
         #toolbar {
             position: fixed;
             top: 10px;
-            left: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
             background: white;
             padding: 8px;
@@ -30,7 +32,7 @@
             justify-content: space-around;
             flex-direction: row;
             align-items: center;
-            margin: auto;
+            width: 15%;
         }
 
         #toolbar .iconfont {
@@ -58,13 +60,15 @@
         .user-list li {
             display: block !important;
             margin-bottom: 3px;
+            cursor: default;
         }
 
         .current-user {
             position: fixed;
-            bottom: 10px;
-            right: 20px;
-            opacity: .4;
+            top: 10px;
+            left: 20px;
+            opacity: .1;
+            pointer-events: none;
         }
 
         .pencil {
@@ -95,14 +99,27 @@
         .guide .layui-icon {
             font-size: 3rem;
         }
+
+        .guide-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            display: none;
+            max-width: 300px;
+            font-family: sans-serif;
+        }
     </style>
 </head>
 <body>
 <canvas id="board"></canvas>
 <div id="cursors" style="position: absolute; top: 0; left: 0; z-index: 999;"></div>
-<div class="guide">
-    <i class="layui-icon layui-icon-tips-fill"></i>
-</div>
+
 <div id="toolbar">
     <i class="iconfont icon-brush" lay-on="pen"></i>
     <i class="iconfont icon-eraser" lay-on="eraser"></i>
@@ -120,12 +137,12 @@
 <div class="current-user"><?= $userName?></div>
 
 <script src="/static/layui/layui.js"></script>
-<script src="/static/draw/helper.js"></script>
+<script src="/static/js/draw/helper.js"></script>
 <script src="/static/js/common.js"></script>
 <script src="/static/iconfont/iconfont.js"></script>
 <script>
     layui.use(async () => {
-        const {element, layer, $, colorpicker, slider} = layui
+        const {element, layer, $, colorpicker, slider, util} = layui
             , canvas = document.getElementById('board')
             , ctx = canvas.getContext('2d')
             , cursorContainer = document.getElementById('cursors')
@@ -133,7 +150,6 @@
             , userId = '<?= $userId?>'
             , clientId = '<?= $clientId?>'
             , cursorColor = getRandomColor()
-            , util = layui.util
             , userListSelector = $('#userList')
             , ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${clientId}/${userId}`);
         let isErasing = false
@@ -313,6 +329,28 @@
                         ctx.closePath();
                     });
                 });
+            },
+            guide: () => {
+                layer.open({
+                    type: 1, // page 层类型
+                    area: ['500px', '300px'],
+                    title: '快捷键指南',
+                    shade: 0.6, // 遮罩透明度
+                    shadeClose: true, // 点击遮罩区域，关闭弹层
+                    maxmin: true, // 允许全屏最小化
+                    anim: 0, // 0-6 的动画形式，-1 不开启
+                    content: `<div style="width: 100%;" >
+        <ul style="padding-left: 20px;">
+            <li><b>Ctrl + Z</b>：撤销</li>
+            <li><b>Ctrl + Y</b>：重做</li>
+            <li><b>B</b>：画笔</li>
+            <li><b>E</b>：橡皮擦</li>
+            <li><b>Ctrl + C</b>：分享画布</li>
+            <li><b>Ctrl + =</b>：增大画笔大小</li>
+            <li><b>Ctrl + -</b>：减小画笔大小</li>
+            <li><b>Ctrl?</b>：显示 / 隐藏快捷键说明</li>
+        </ul></div>`
+                });
             }
         };
         util.on('lay-on', events)
@@ -329,6 +367,30 @@
             },
         })
 
+
+        util.fixbar({
+            bars: [
+                {
+                    type: 'guide',
+                    content: '快捷键指南',
+                    icon: 'layui-icon-help'
+                }
+            ],
+            on: {
+                mouseenter: function (type) {
+                    layer.tips($(this).text(), this, {
+                        tips: 4,
+                        fixed: true
+                    });
+                },
+                mouseleave: function (type) {
+                    layer.closeAll('tips');
+                },
+                click: type => {
+                    events[type]();
+                }
+            }
+        })
         const colorpickerEle = colorpicker.render({ // eg2
                 elem: '#colorpicker',
                 color: '#000000', // 设置默认色
@@ -366,15 +428,20 @@
             if (event.key === 'c' && event.ctrlKey) {
                 events.share();
             }
-            if (event.key === '=') {
+            if (event.key === '=' && event.ctrlKey) {
                 size = size + 1
                 sliderEle.setValue(size);
                 events.slider(size)
+                event.preventDefault();
             }
-            if (event.key === '-') {
+            if (event.key === '-' && event.ctrlKey) {
                 size = size - 1
                 sliderEle.setValue(size);
                 events.slider(size)
+                event.preventDefault();
+            }
+            if (event.key === '/' && event.ctrlKey) {
+                events.guide();
             }
             element.render();
         });

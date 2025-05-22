@@ -3,7 +3,6 @@
 namespace app\service\draw\driver;
 
 use app\model\Room;
-use app\service\draw\driver\Package;
 use support\Redis;
 use Workerman\Connection\TcpConnection;
 

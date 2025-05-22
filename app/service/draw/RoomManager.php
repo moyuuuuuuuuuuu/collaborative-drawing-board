@@ -2,8 +2,6 @@
 
 namespace app\service\draw;
 
-use support\Redis;
-
 /**
  * 房间管理器
  */

@@ -2,7 +2,6 @@
 
 namespace app\service\draw\driver;
 
-use app\service\draw\driver\Package;
 use app\service\draw\Messager;
 use Workerman\Connection\TcpConnection;
 

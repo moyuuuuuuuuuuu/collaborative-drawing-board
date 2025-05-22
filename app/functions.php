@@ -2,6 +2,27 @@
 /**
  * Here is your custom functions.
  */
+
+function static_path(string $path = '')
+{
+    return public_path('static/' . $path);
+}
+
+function images_path(string $path = '')
+{
+    return static_path('images/' . $path);
+}
+
+function uploads_path(string $path = '')
+{
+    return public_path('uploads/' . $path);
+}
+
+function js_path(string $path = '')
+{
+    return static_path('js/' . $path);
+}
+
 /**
  * Generate a random username.
  * @return string

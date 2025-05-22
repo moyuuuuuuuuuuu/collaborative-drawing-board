@@ -13,13 +13,15 @@ class RoomController extends Base
 {
 
     use Jump;
+
     public function stream(Request $request, $roomId)
     {
-        $roomInfo = Room::where('id', $roomId)->findOrFail();
-        if ($roomInfo->isEmpty()) {
-            return response()->header('Content-Type', 'image/jpeg');
+        $roomInfo = Room::where('id', $roomId)->findOrEmpty();
+        $snapshot = '';
+        if (!$roomInfo->isEmpty()) {
+            $snapshot = $roomInfo->snapshot ?? file_get_contents(images_path('empty.png'));
         }
-        return response($roomInfo->snapshot)->header('Content-Type', 'image/jpeg');
+        return response($snapshot, 200, ['Content-Type' => 'image/jpeg']);
     }
 
     public function joinedList(Request $request)
