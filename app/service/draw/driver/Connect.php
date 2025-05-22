@@ -26,62 +26,45 @@ class Connect extends Package
             return;
         }
         $isManager = intval($roomInfo->creator_id) == intval($userId);
-        $message   = '已经进入房间，准备开始吧！';
-        if ($isManager) {
-            $message = '欢迎进入房间，您是房主，可以踢出成员';
-        }
+
         $connection->isManager = $isManager;
         $connection->roomInfo  = $roomInfo;
         $connection->userInfo  = new UserInfo(User::where('id', $userId)->find());
-        $joinLog               = RoomMember::where(['room_id' => $roomInfo->id, 'user_id' => $userId])->findOrEmpty();
-        if ($joinLog->isEmpty()) {
-            RoomMember::create([
-                'room_id'    => $roomInfo->id,
-                'user_id'    => $userId,
-                'is_manager' => (int)$isManager,
-            ]);
-        } else {
-            $joinLog->join_at = date('Y-m-d H:i:s');
-        }
+
         RoomManager::joinRoom($roomId, $connection);
+        $membersCount = RoomManager::getMemberCount($roomId);
 
-
-        //获取房间所有笔迹
-        $strokeList = LineSegment::getPointsByRoomId($roomId);
-        Messager::multicast($roomId, 'stroke', '', [
-            'strokeList' => $strokeList,
-            'reDraw'     => true
-        ]);
-
-        $data    = [
+        $data = [
             'clientId'  => $clientId,
             'roomId'    => $roomId,
             'isManager' => $isManager,
-            'isFirst'   => true,
+            'isFirst'   => $membersCount <= 1,
+            'members'   => []
         ];
-        $members = RoomManager::getMembers($roomId);
-        foreach ($members as $member) {
-            $data['members'][] = [
-                'username'  => $member->userInfo->username,
-                'isManager' => $member->isManager,
-                'clientId'  => $member->clientId,
-            ];
-        }
-        $data['isFirst'] = RoomManager::getMemberCount($roomId) <= 1;
-        Messager::unicast($connection, 'connect', $message, $data);
-        unset($data);
-        $data['member'] = ['clientId' => $clientId, 'isManager' => $isManager, 'username' => $connection->userInfo->username];
-        //随机获取一个用户导出canvas数据并重绘给当前用户
-        if (RoomManager::getMemberCount($roomId) > 1) {
-            Messager::multicast($roomId, 'join', sprintf('用户[%s]加入房间', $connection->userInfo->username), $data, [$clientId]);
+        if ($membersCount > 1) {
+            $members = RoomManager::getMembers($roomId);
+            foreach ($members as $member) {
+                if ($member->clientId == $clientId) {
+                    continue;
+                }
+                $data['members'][] = [
+                    'username'  => $member->userInfo->username,
+                    'isManager' => $member->isManager,
+                    'clientId'  => $member->clientId,
+                ];
+            }
+            $join = ['clientId' => $clientId, 'isManager' => $isManager, 'username' => $connection->userInfo->username];
+            //广播用户加入房间
+            Messager::multicast($roomId, 'join', sprintf('用户[%s]加入房间', $connection->userInfo->username), ['member' => $join], [$clientId]);
         }
 
+        Messager::unicast($connection, 'connect', $isManager ? '欢迎进入房间，您是房主，可以踢出成员' : '已经进入房间，准备开始吧！', $data);
         //获取房间所有笔迹
         $strokeList = LineSegment::getPointsByRoomId($roomId);
-        Messager::multicast($roomId, 'stroke', '', [
+        Messager::unicast($connection, 'stroke', '', [
             'strokeList' => $strokeList,
             'reDraw'     => true
-        ], ['clientId' => $clientId]);
+        ]);
 
     }
 }

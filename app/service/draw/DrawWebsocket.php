@@ -2,6 +2,7 @@
 
 namespace app\service\draw;
 
+use app\model\RoomMember;
 use app\service\draw\driver\{Close, Connect, Failure};
 use Workerman\Connection\TcpConnection;
 use Workerman\Timer;
@@ -29,6 +30,13 @@ class DrawWebsocket
         }
         if (!$connection->userId) {
             (new Failure([]))->setMessage('用户ID缺失')->execute($connection);
+            $connection->close();
+            return;
+        }
+        //检查是否被踢出
+        $roomMember = RoomMember::where('room_id', $connection->roomId)->where('user_id', $connection->userId)->find();
+        if ($roomMember && $roomMember->status == 3) {
+            (new Failure([]))->setMessage('你已被踢出')->execute($connection);
             $connection->close();
             return;
         }

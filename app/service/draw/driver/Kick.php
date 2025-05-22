@@ -16,13 +16,8 @@ class Kick extends Package
     {
         $connection = RoomManager::getMember($connection->roomId, $this->data['clientId']);
         if ($connection) {
-            RoomMember::update([
-                'leave_at' => date('Y-m-d H:i:s', time()),
-                'status'   => isset($connection->isKicked) && $connection->isKicked ? 3 : 2
-            ], ['id' => $connection->roomInfo->id, 'user_id' => $connection->userId]);
             $connection->isKicked = true;
             $connection->close();
-            RoomManager::leaveRoom($connection->roomId, $this->data['clientId']);
         }
     }
 }

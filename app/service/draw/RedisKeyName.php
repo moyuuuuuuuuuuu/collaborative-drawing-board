@@ -5,6 +5,8 @@ namespace app\service\draw;
 enum RedisKeyName: string
 {
     case LINESEGMENT_QUEUE_NAME = 'LineSegment';
+    case JOIN_ROOM_QUEUE_NAME   = 'JoinRoom';
+    case LEAVE_ROOM_QUEUE_NAME  = 'LeaveRoom';
     case INFO                   = 'room:%s:info';
     case STROKE_LIST_NAME       = 'room:%s:stroke:%s';
     case STROKE_SCORE_NAME      = 'room:%s:score:stroke:%s';
@@ -13,4 +15,6 @@ enum RedisKeyName: string
     case REDO_LIST_NAME         = 'room:%s:redo:%s';
     case REDO_SCORE_NAME        = 'room:%s:score:redo:%s';
     case MEMBER_LIST_NAME       = 'room:%s:members';
+
+
 }
