@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>协作画板</title>
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/iconfont/iconfont.css" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #toolbar {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-around;
+            flex-direction: row;
+            align-items: center;
+            margin: auto;
+        }
+
+        #toolbar .iconfont {
+            font-size: 1.5rem;
+            margin: 0 .4rem;
+        }
+
+        .user-list {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .cursor {
+            text-align: center;
+            transform: translate(-50%, -50%);
+        }
+
+        .user-list li {
+            display: block !important;
+            margin-bottom: 3px;
+        }
+
+        .current-user {
+            position: fixed;
+            bottom: 10px;
+            right: 20px;
+            opacity: .4;
+        }
+
+        .pencil {
+            position: fixed;
+            border: 1px solid #000000;
+            border-radius: 50%;
+            width: 5px;
+            height: 5px;
+            pointer-events: none;
+        }
+
+        .slider-bar {
+            position: fixed;
+            left: 15px;
+            top: 25%;
+        }
+
+        .icon-redo {
+            transform: scaleX(-1);
+        }
+
+        .guide {
+            position: fixed;
+            right: 15px;
+            top: 25%;
+        }
+
+        .guide .layui-icon {
+            font-size: 3rem;
+        }
+    </style>
+</head>
+<body>
+<canvas id="board"></canvas>
+<div id="cursors" style="position: absolute; top: 0; left: 0; z-index: 999;"></div>
+<div class="guide">
+    <i class="layui-icon layui-icon-tips-fill"></i>
+</div>
+<div id="toolbar">
+    <i class="iconfont icon-brush" lay-on="pen"></i>
+    <i class="iconfont icon-eraser" lay-on="eraser"></i>
+    <i class="iconfont icon-undo" lay-on="undo"></i>
+    <i class="iconfont icon-undo icon-redo" lay-on="redo"></i>
+    <i class="iconfont icon-share" lay-on="share"></i>
+    <div id="colorpicker"></div>
+</div>
+<div class="slider-bar">
+    <div id="slider"></div>
+</div>
+
+<div id="pencil" class="pencil"></div>
+<ul class="user-list" id="userList"></ul>
+<div class="current-user"><?= $userName?></div>
+
+<script src="/static/layui/layui.js"></script>
+<script src="/static/draw/helper.js"></script>
+<script src="/static/js/common.js"></script>
+<script src="/static/iconfont/iconfont.js"></script>
+<script>
+    layui.use(async () => {
+        const {element, layer, $, colorpicker, slider} = layui
+            , canvas = document.getElementById('board')
+            , ctx = canvas.getContext('2d')
+            , cursorContainer = document.getElementById('cursors')
+            , groupId = '<?= $s ?>'
+            , userId = '<?= $userId?>'
+            , clientId = '<?= $clientId?>'
+            , cursorColor = getRandomColor()
+            , util = layui.util
+            , userListSelector = $('#userList')
+            , ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${clientId}/${userId}`);
+        console
+        let isErasing = false
+            , drawing = false
+            , isManager = false
+            , actionStack = new ActionStack()
+            , redoStack = new RedoStack()
+            , cursors = {}
+            , color = '#000000'
+            , size = 5
+            , currentPath = {userId: clientId, strokeId: null, points: []}
+            , lastSnapBlob = null
+            , lastDrawTime = Date.now()
+            , confirmIdx
+            , strokeId = null
+            , memberClientIdList = [];
+
+        setInterval(() => {
+            if (Date.now() - lastDrawTime > 3 * 1000) {
+                if (confirmIdx) {
+                    return
+                }
+                var second = 5
+                    , timer = setInterval(function () {
+                    second--;
+                    var confirmElem = document.querySelector('.layui-layer-content');
+                    if (confirmElem) {
+                        confirmElem.innerHTML = '你已经离开协作画板一段时间，' + second + '秒后自动退出，是否确认？';
+                    }
+                    if (second <= 0) {
+                        clearInterval(timer);
+                        document.querySelector('.layui-layer-btn0').click();
+                    }
+                }, 1000);
+                confirmIdx = layer.confirm('你已经离开协作画板一段时间，' + second + '秒后自动退出，是否确认？', {
+                    btn: ['确定', '关闭']
+                    , time: 5 * 1000
+                    , shade: 0.1
+                    , closeBtn: 0
+                }, function () {
+                    clearInterval(timer)
+                    ws.close();
+                    window.location.href = '/';
+                }, function () {
+                    clearInterval(timer)
+                    layer.close(confirmIdx);
+                });
+            }
+        }, 1000 * 60 * 10)
+
+        setInterval(() => {
+            utilEvent.snapShot();
+        }, 1000 * 15)
+
+        const utilEvent = {
+            pen: () => {
+                isErasing = false
+                $('#pencil').css({
+                    'border-radius': '50%',
+                })
+            },
+            eraser: () => {
+                isErasing = true
+                $('#pencil').css({
+                    'border-radius': 0,
+                })
+            },
+            undo: (userId, toServer = true, isShowMsg = true) => {
+                if (typeof userId === 'object') {
+                    userId = clientId;
+                }
+                if (typeof toServer !== 'boolean') {
+                    toServer = true;
+                }
+                if (typeof isShowMsg !== 'boolean') {
+                    isShowMsg = true;
+                }
+                try {
+                    let {strokeId, points} = actionStack.pop(userId);
+                    if (strokeId) {
+                        redoStack.push(userId, strokeId, points);
+                        if (toServer) {
+                            send('undo', {strokeId: strokeId,})
+                        }
+                    }
+                    utilEvent.redrawAll();
+                } catch (e) {
+                    console.warn(e)
+                    if (isShowMsg) {
+                        layer.msg('没有可撤销的操作');
+                    }
+                }
+            },
+            redo: (userId, toServer = true, isShowMsg = true) => {
+                if (typeof userId === 'object') {
+                    userId = clientId;
+                }
+                if (typeof toServer !== 'boolean') {
+                    toServer = true;
+                }
+                if (typeof isShowMsg !== 'boolean') {
+                    isShowMsg = true;
+                }
+                try {
+                    let {strokeId, points} = redoStack.pop(userId);
+                    if (strokeId) {
+                        actionStack.push(userId, strokeId, points);
+                        if (toServer) {
+                            send('redo', {strokeId: strokeId})
+                        }
+                    }
+                    utilEvent.redrawAll();
+                } catch (e) {
+                    console.warn(e)
+                    if (isShowMsg) {
+                        layer.msg('没有可重做的操作');
+                    }
+                }
+            },
+            share: () => {
+                navigator.clipboard.writeText(window.location.href)
+                    .then(() => layer.msg('链接已复制'))
+                    .catch(err => alert('复制失败'));
+            },
+            slider: value => {
+                size = value
+                $('#pencil').css({
+                    width: size + 'px',
+                    height: size + 'px',
+                })
+            },
+            colorpicker: (c) => {
+                color = c
+                $('#pencil').css({
+                    'border-color': c,
+                })
+            },
+            snapShot: (cmd = 'snap') => {
+                canvas.toBlob(function (blob) {
+                    if (!lastSnapBlob) {
+                        lastSnapBlob = blob;
+                    } else if (lastSnapBlob === blob) {
+                        return;
+                    }
+                    blob.arrayBuffer().then(arrayBuffer => {
+                        console.log(arrayBuffer);
+                        send(cmd, {}, arrayBuffer)
+                    })
+                }, "image/png"); // 第二个参数是导出的图片格式
+            },
+            redrawAll: () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                Object.entries(actionStack.getAllStrokes()).forEach(([clientId, strokes]) => {
+                    Object.entries(strokes).forEach(([strokeId, points]) => {
+                        if (!points || points.length === 0) return;
+                        // 设置当前笔画的样式（只设置一次）
+                        const firstPoint = points[0].point;
+                        ctx.strokeStyle = firstPoint.color;
+                        ctx.lineWidth = firstPoint.size;
+                        ctx.lineCap = 'round';
+                        // 开始新路径
+                        ctx.beginPath();
+                        points.forEach((pointData, index) => {
+                            const {x, y, isStart} = pointData.point;
+
+                            // 第一个点或标记为isStart的点使用moveTo
+                            if (isStart || index === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        });
+                        // 绘制完整路径（只绘制一次）
+                        ctx.stroke();
+                        // 结束路径
+                        ctx.closePath();
+                    });
+                });
+            }
+        };
+        util.on('lay-on', utilEvent)
+
+        util.on('lay-active', {
+            remove: (othis, e) => {
+                const confirmIdx = layer.confirm('确定踢出该成员吗？', {
+                    btn: ['确定', '关闭'] //按钮
+                }, function () {
+                    send('kick', {clientId: $(othis).attr('data-client-id')})
+                }, function () {
+                    layer.close(confirmIdx);
+                });
+            },
+        })
+
+        const colorpickerEle = colorpicker.render({ // eg2
+                elem: '#colorpicker',
+                color: '#000000', // 设置默认色
+                done: function (c) { // 选择完毕的回调
+                    utilEvent.colorpicker(c)
+                }
+            }),
+            sliderEle = slider.render({
+                elem: '#slider',
+                min: 1, // 最小值
+                max: 30, // 最大值
+                value: 5,
+                step: 1,
+                type: 'vertical',
+                height: 200,
+                done: value => {
+                    utilEvent.slider(value)
+                }
+            });
+        window.onresize = resizeCanvas;
+        resizeCanvas(true);
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'z' && event.ctrlKey) {
+                utilEvent.undo(clientId);
+            }
+            if (event.key === 'b') {
+                utilEvent.pen();
+            }
+            if (event.key === 'e') {
+                utilEvent.eraser();
+            }
+            if (event.key === 'y' && event.ctrlKey) {
+                utilEvent.redo(clientId);
+            }
+            if (event.key === 'c' && event.ctrlKey) {
+                utilEvent.share();
+            }
+            if (event.key === '=') {
+                size = size + 1
+                sliderEle.setValue(size);
+                utilEvent.slider(size)
+            }
+            if (event.key === '-') {
+                size = size - 1
+                sliderEle.setValue(size);
+                utilEvent.slider(size)
+            }
+            element.render();
+        });
+        canvas.addEventListener('mousedown', e => {
+            drawing = true;
+            currentPath = {userId: clientId, strokeId: null, points: []};
+            currentPath.strokeId = generateSnowId()
+            ctx.beginPath();
+            const x = e.offsetX, y = e.offsetY
+                , drawColor = (isErasing ? '#FFFFFF' : color)
+                , point = {
+                id: generateSnowId(),
+                point: {x: x, y: y, color: drawColor, size: size, isStart: true},
+                strokeId: currentPath.strokeId
+            };
+            ctx.moveTo(x, y);
+            currentPath.points.push(point);
+            send('draw', point)
+        });
+        canvas.addEventListener('mousemove', e => {
+            lastDrawTime = Date.now();
+            if (drawing) {
+                const x = e.offsetX
+                    , y = e.offsetY
+                    , drawColor = (isErasing ? '#FFFFFF' : color);
+                ctx.strokeStyle = drawColor;
+                ctx.lineWidth = size;
+                ctx.lineCap = 'round';
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                const point = {
+                    id: generateSnowId(),
+                    point: {x: x, y: y, color: drawColor, size: size, isStart: false},
+                    strokeId: currentPath.strokeId
+                }
+                currentPath.points.push(point);
+                send('draw', point);
+            }
+            send('cursor', {
+                userId: userId,
+                x: e.clientX,
+                y: e.clientY,
+                color: cursorColor,
+                name: '<?= $userName ?>'
+            });
+            $('#pencil').css({
+                top: e.clientY - size / 2 + 'px',
+                left: e.clientX - size / 2 + 'px',
+            })
+        });
+        canvas.addEventListener('mouseup', () => {
+            if (drawing && currentPath.points.length > 0) {
+                send('draw', {
+                    isEnd: true,
+                    strokeId: currentPath.strokeId
+                });
+                if (currentPath.points.length > 0) actionStack.push(currentPath.userId, currentPath.strokeId, currentPath.points);
+                currentPath = {userId: clientId, strokeId: null, points: []};
+            }
+            strokeId = null
+            drawing = false;
+            ctx.beginPath();
+        });
+
+        function resizeCanvas(isFirst = false) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            utilEvent.redrawAll()
+        }
+
+        function send(cmd, data, binaryBuffer = null) {
+            if (ws.readyState !== WebSocket.OPEN) return;
+
+            const meta = {cmd, data};
+            const jsonBytes = new TextEncoder().encode(JSON.stringify(meta));
+            const jsonLength = jsonBytes.length;
+            const binaryBytes = binaryBuffer ? new Uint8Array(binaryBuffer) : new Uint8Array(0);
+            const totalLength = 4 + jsonLength + binaryBytes.length;
+            const fullBuffer = new Uint8Array(totalLength);
+
+            fullBuffer[0] = (jsonLength >>> 24) & 0xff;
+            fullBuffer[1] = (jsonLength >>> 16) & 0xff;
+            fullBuffer[2] = (jsonLength >>> 8) & 0xff;
+            fullBuffer[3] = jsonLength & 0xff;
+            fullBuffer.set(jsonBytes, 4);
+
+            if (binaryBytes.length > 0) {
+                fullBuffer.set(binaryBytes, 4 + jsonLength);
+            }
+            ws.send(fullBuffer.buffer);
+        }
+
+        const dispatch = {
+            loadingDraw: false,
+            connect: (message, data) => {
+                layer.msg(message);
+                isManager = data.isManager;
+                data.members.forEach(member => {
+                    memberClientIdList.push(member.clientId)
+                    //组装html
+                    let html = '', kickBtn = '';
+                    if (isManager) {
+                        kickBtn = `<i data-client-id="${member.clientId}" class="layui-icon layui-icon-error" lay-active="remove"></i>`;
+                    }
+                    if (userListSelector.children(`#u-${member.clientId}`).length > 0) {
+                        return false;
+                    }
+                    if (!member.isManager) {
+                        html = `<li id="u-${member.clientId}" class="layui-badge layui-bg-blue"><i class="layui-icon layui-icon-username"></i>  ${member.username} ${kickBtn}</li>`
+                    } else {
+                        html = `<li id="u-${member.clientId}" class="layui-badge "><i class="layui-icon layui-icon-username"></i> ${member.username}</li>`
+                    }
+                    $('#userList').append(html);
+                });
+                if (!data.isFirst) {
+                    dispatch.loadingDraw = layer.msg('绘画加载中', {
+                        icon: 16,
+                        shade: 0.01
+                    });
+                }
+            },
+            draw: (message, data) => {
+                let x, y, color, size, isStart = false, isEnd = false;
+                if (data.hasOwnProperty('id') && data.point) {
+                    ({x, y, color, size, isStart} = data.point);
+                } else if (data.hasOwnProperty('isEnd')) {
+                    ({isEnd} = data);
+                }
+                if (isEnd) {
+                    return;
+                }
+
+                ctx.strokeStyle = color || '#000'; // 默认黑色
+                ctx.lineWidth = size || 2;         // 默认宽度
+                ctx.lineCap = 'round';
+                actionStack.push(data.clientId, data.strokeId, [{id: data.id, point: {x, y, color, size, isStart}}])
+                if (isStart) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                }
+            },
+            stroke: (message, data) => {
+                let {strokeList, reDraw} = data
+                Object.entries(strokeList).forEach(([clientId, strokes]) => {
+                    Object.entries(strokes).forEach(([strokeId, points]) => {
+                        actionStack.push(clientId, strokeId, points);
+                    });
+                })
+                if (reDraw) {
+                    utilEvent.redrawAll()
+                }
+            },
+            cursor: (message, data) => {
+                const {userId, x, y, color = '#ff0000', name = ''} = data;
+                if (userId === '<?= $userId ?>') return;
+                let el = cursors[userId];
+                if (!el) {
+                    el = document.createElement('div');
+                    el.className = 'cursor';
+                    el.style.position = 'absolute';
+                    el.style.pointerEvents = 'none';
+                    el.style.zIndex = 999;
+                    el.style.fontSize = '12px';
+                    el.style.color = color;
+                    el.innerHTML = `<div style="width:8px;height:8px;background:${color};border-radius:50%;"></div>`;
+                    cursorContainer.appendChild(el);
+                    cursors[userId] = el;
+                }
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+            },
+            join: (message, data) => {
+                layer.msg(message);
+                let kickBtn = ''
+                    , member = data.member
+                    , html = '';
+                if (isManager) {
+                    kickBtn = `<i data-client-id="${member.clientId}" class="layui-icon layui-icon-error" lay-active="remove"></i>`;
+                }
+                if (userListSelector.children(`#u-${member.clientId}`).length > 0) {
+                    return;
+                }
+                if (!member.isManager) {
+                    html = `<li id="u-${member.clientId}" class="layui-badge layui-bg-blue"><i class="layui-icon layui-icon-username"></i>  ${member.username} ${kickBtn}</li>`;
+                } else {
+                    html = `<li id="u-${member.clientId}" class="layui-badge"><i class="layui-icon layui-icon-username"></i>  ${member.username}  </li>`
+                }
+                userListSelector.append(html);
+            },
+            leave: (message, data) => {
+                layer.msg(message);
+                console.log(`#u-${data.clientId}`)
+                userListSelector.children(`#u-${data.clientId}`).remove();
+                redoStack.clear(data.clientId);
+                if (cursors[data.clientId]) {
+                    cursors[data.clientId].remove();
+                }
+                memberClientIdList.splice(memberClientIdList.indexOf(data.clientId), 1);
+
+            },
+            failure: (message, data) => {
+                layer.msg(message);
+                console.log(message, data)
+            },
+            notice: (message, data) => layer.msg(message),
+            ping: () => send('pong', {}),
+            blob: (message, data) => {
+                canvas.toBlob(function (blob) {
+                    if (!blob) return;
+                    blob.arrayBuffer().then((arrayBuffer) => {
+                        send('blob', {
+                            clientId: data.clientId,
+                        }, arrayBuffer);
+                    });
+                }, "image/png");
+            },
+            blobToDraw: (message, data, blob) => {
+                const img = new Image();
+                img.onload = function () {
+                    ctx.drawImage(img, 0, 0);
+                    layer.close(dispatch.loadingDraw)
+                    dispatch.loadingDraw = false;
+                    console.log(img)
+                };
+                img.src = URL.createObjectURL(new Blob([blob]));
+            },
+            doUndo: (message, data) => utilEvent.undo(data.clientId, false, false),
+            doRedo: (message, data) => utilEvent.redo(data.clientId, false, false)
+        };
+        ws.onmessage = event => {
+            if (event.data instanceof Blob) {
+                // 创建一个 FileReader 实例
+                const reader = new FileReader();
+
+                // 绑定 onload 事件，确保数据读取完毕后处理
+                reader.onload = function () {
+                    // 获取 ArrayBuffer 数据
+                    const arrayBuffer = reader.result;
+
+                    // 创建 DataView 实例
+                    const dataView = new DataView(arrayBuffer);
+
+                    // 读取数据（例如，读取第一个 4 字节作为 JSON 长度）
+                    const jsonLength = dataView.getUint32(0);  // 假设前 4 字节是 JSON 长度
+
+                    // 4. 提取 JSON 数据
+                    const jsonBytes = new Uint8Array(arrayBuffer, 4, jsonLength); // 从第 4 字节开始，长度为 jsonLength
+                    const jsonString = new TextDecoder().decode(jsonBytes); // 解码成 JSON 字符串
+                    const meta = JSON.parse(jsonString); // 解析 JSON 字符串
+
+                    // 5. 提取二进制数据（如果存在）
+                    const binaryDataStart = 4 + jsonLength; // 二进制数据从这个位置开始
+                    const binaryData = new Uint8Array(arrayBuffer.slice(binaryDataStart)); // 获取剩余的二进制数据
+                    // 如果需要，可以将二进制数据转成 Blob 或其他格式进行处理
+                    const blob = new Blob([binaryData]); // 可选：将二进制数据转换成 Blob 对象
+                    const {cmd, message, data} = meta;
+                    if (typeof dispatch[cmd] === 'function') {
+                        dispatch[cmd](message, data, blob);
+                    } else {
+                        console.warn(`No handler for cmd: ${cmd}`);
+                    }
+                };
+
+                // 读取 Blob 数据为 ArrayBuffer
+                reader.readAsArrayBuffer(event.data);
+            } else {
+                console.warn(`No handler for event: ${event.data}`);
+            }
+        };
+        ws.onclose = event => {
+            // 关闭 WebSocket 连接时触发 ,导出canvas
+            utilEvent.snapShot();
+
+            layer.msg('连接已断开');
+        };
+    });
+</script>
+</body>
+</html>
