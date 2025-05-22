@@ -13,10 +13,24 @@
             height: 100%;
         }
 
-        canvas {
+        #board {
             display: block;
             cursor: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
         }
+
+        #bgCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
 
         #toolbar {
             position: fixed;
@@ -32,7 +46,7 @@
             justify-content: space-around;
             flex-direction: row;
             align-items: center;
-            width: 15%;
+            width: 25%;
         }
 
         #toolbar .iconfont {
@@ -84,6 +98,7 @@
             position: fixed;
             left: 15px;
             top: 25%;
+            z-index: 10;
         }
 
         .icon-redo {
@@ -114,9 +129,14 @@
             max-width: 300px;
             font-family: sans-serif;
         }
+
+        .freeStyle {
+
+        }
     </style>
 </head>
 <body>
+<canvas id="bgCanvas"></canvas>
 <canvas id="board"></canvas>
 <div id="cursors" style="position: absolute; top: 0; left: 0; z-index: 999;"></div>
 
@@ -142,7 +162,10 @@
 <script src="/static/iconfont/iconfont.js"></script>
 <script>
     layui.use(async () => {
-        const {element, layer, $, colorpicker, slider, util} = layui
+        const {form, element, layer, $, colorpicker, slider, util} = layui
+            , bgCanvas = document.getElementById("bgCanvas")
+            , bgCtx = bgCanvas.getContext('2d')
+            , selector = document.getElementById('bgSelector')
             , canvas = document.getElementById('board')
             , ctx = canvas.getContext('2d')
             , cursorContainer = document.getElementById('cursors')
@@ -151,8 +174,16 @@
             , clientId = '<?= $clientId?>'
             , cursorColor = getRandomColor()
             , userListSelector = $('#userList')
-            , ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${clientId}/${userId}`);
-        let isErasing = false
+            , ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${clientId}/${userId}`)
+            , styleMap = {
+            default: '默认',
+            gray: '灰色',
+            green: '护眼绿',
+        };
+        let currentStyle = 'default'
+            , scale = 1
+            , isGrid = false
+            , isErasing = false
             , isDragging = false
             , isDrawing = false
             , isManager = false
@@ -169,7 +200,7 @@
             , memberClientIdList = [];
 
         setInterval(() => {
-            if (Date.now() - lastDrawTime > 3 * 1000) {
+            if (Date.now() - lastDrawTime > 10 * 60 * 1000) {
                 if (confirmIdx) {
                     return
                 }
@@ -199,13 +230,20 @@
                     layer.close(confirmIdx);
                 });
             }
-        }, 1000 * 60 * 10)
+        }, 1000 * 10)
 
         setInterval(() => {
             events.snapShot();
-        }, 1000 * 15)
+        }, 1000 * 5 * 60)
 
         const events = {
+            resizeCanvas: (isFirst = true) => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                if (!isFirst) {
+                    events.redrawAll()
+                }
+            },
             pen: () => {
                 isErasing = false
                 $('#pencil').css({
@@ -296,7 +334,6 @@
                         return;
                     }
                     blob.arrayBuffer().then(arrayBuffer => {
-                        console.log(arrayBuffer);
                         send(cmd, {}, arrayBuffer)
                     })
                 }, "image/png"); // 第二个参数是导出的图片格式
@@ -351,7 +388,72 @@
             <li><b>Ctrl?</b>：显示 / 隐藏快捷键说明</li>
         </ul></div>`
                 });
-            }
+            },
+            drawGrid: (spacing = 10, color = '#ddd') => {
+                gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+                gridCtx.beginPath();
+                gridCtx.strokeStyle = color;
+                gridCtx.lineWidth = 1;
+
+                for (let x = 0; x <= gridCanvas.width; x += spacing) {
+                    gridCtx.moveTo(x, 0);
+                    gridCtx.lineTo(x, gridCanvas.height);
+                }
+
+                for (let y = 0; y <= gridCanvas.height; y += spacing) {
+                    gridCtx.moveTo(0, y);
+                    gridCtx.lineTo(gridCanvas.width, y);
+                }
+
+                gridCtx.stroke();
+            },
+            clearGrid: () => {
+                gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+            },
+            style: () => {
+                let optionHtml = '';
+                for (let style in styleMap) {
+                    let item = styleMap[style]
+                    if (style === currentStyle) {
+                        optionHtml += `<option value="${style}" selected>${item}</option>`;
+                    } else {
+                        optionHtml += `<option value="${style}" >${item}</option>`;
+                    }
+                }
+                layer.open({
+                    type: 1, // page 层类型
+                    title: false,
+                    shadeClose: true, // 点击遮罩区域，关闭弹层
+                    // 注: 这里特别对 select 设置了 lay-append-position 属性，以便与 layer 的定位方式保持一致
+                    content: `<form class="layui-form layui-padding-3" lay-filter="test">
+<select lay-filter="changeStyle" lay-append-to="body" lay-append-position="fixed">${optionHtml}</select>
+</form>`,
+                    success: function (layero) {
+                        // 定向渲染 select
+                        form.render();
+                    },
+                });
+            },
+            changeStyle: (style) => {
+                currentStyle = style;
+                switch (style) {
+                    case 'gray':
+                        events.clearBackground('#cccccc'); // 灰色
+                        break;
+                    case 'green':
+                        events.clearBackground('#dfeee2'); // 护眼绿
+                        break;
+                    case 'default':
+                        events.clearBackground('#ffffff'); // 纯白
+                        break;
+                }
+            },
+            clearBackground: (fillColor = '#ffffff') => {
+                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+                bgCtx.fillStyle = fillColor;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            },
+
         };
         util.on('lay-on', events)
 
@@ -367,9 +469,18 @@
             },
         })
 
+        form.on('select(changeStyle)', function (data) {
+            events.changeStyle(data.value)
+            layer.closeAll();
+        })
 
         util.fixbar({
             bars: [
+                {
+                    type: 'style',
+                    content: '背景风格',
+                    icon: 'layui-icon-theme'
+                },
                 {
                     type: 'guide',
                     content: '快捷键指南',
@@ -391,27 +502,33 @@
                 }
             }
         })
-        const colorpickerEle = colorpicker.render({ // eg2
-                elem: '#colorpicker',
-                color: '#000000', // 设置默认色
-                done: function (c) { // 选择完毕的回调
-                    events.colorpicker(c)
-                }
-            }),
-            sliderEle = slider.render({
-                elem: '#slider',
-                min: 1, // 最小值
-                max: 30, // 最大值
-                value: 5,
-                step: 1,
-                type: 'vertical',
-                height: 200,
-                done: value => {
-                    events.slider(value)
-                }
-            });
-        window.onresize = resizeCanvas;
-        resizeCanvas(true);
+        colorpicker.render({ // eg2
+            elem: '#colorpicker',
+            color: '#000000', // 设置默认色
+            done: function (c) { // 选择完毕的回调
+                events.colorpicker(c)
+            }
+        })
+        const sliderEle = slider.render({
+            elem: '#slider',
+            min: 1, // 最小值
+            max: 30, // 最大值
+            value: 5,
+            step: 1,
+            type: 'vertical',
+            height: 200,
+            done: value => {
+                events.slider(value)
+            }
+        });
+        window.onresize = events.resizeCanvas(false);
+        events.resizeCanvas()
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoom = e.deltaY < 0 ? 1.1 : 0.9; // 放大或缩小
+            scale *= zoom; // 更新全局 scale 值
+            events.redrawAll()
+        });
         document.addEventListener('keydown', function (event) {
             if (event.key === 'z' && event.ctrlKey) {
                 events.undo(clientId);
@@ -506,12 +623,6 @@
             ctx.beginPath();
         });
 
-        function resizeCanvas(isFirst = false) {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            events.redrawAll()
-        }
-
         function send(cmd, data, binaryBuffer = null) {
             if (ws.readyState !== WebSocket.OPEN) return;
 
@@ -559,7 +670,7 @@
                 if (!data.isFirst) {
                     dispatch.loadingDraw = layer.msg('绘画加载中', {
                         icon: 16,
-                        shade: 0.01
+                        shade: 0.1
                     });
                 }
             },
