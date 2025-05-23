@@ -177,7 +177,7 @@
     <i class="iconfont icon-undo" lay-active="undo"></i>
     <i class="iconfont icon-undo icon-redo" lay-active="redo"></i>
     <i class="iconfont icon-share" lay-active="share"></i>
-    <i class="layui-icon layui-icon-addition" lay-active="addNode"></i>
+    <!--    <i class="layui-icon layui-icon-addition" lay-active="addNode"></i>-->
     <div id="colorpicker"></div>
 </div>
 
@@ -310,13 +310,10 @@
             });
 
             wsManager.on('draw', (message, data) => {
-                console.log(data, 'drawRemoteStroke')
                 canvasManager.drawRemoteStroke(data);
             });
 
             wsManager.on('strokeLoad', (message, data) => {
-
-                console.log(data, 'strokeLoad')
                 canvasManager.loadStrokes(data.strokeList, data.reDraw);
             });
 

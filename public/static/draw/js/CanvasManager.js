@@ -187,7 +187,10 @@ class CanvasManager {
                     return;
                 }
             }
+            return ;
         }
+        this.mindMap.selectedNodeId = null;
+        this.mindMap.selectDetection(e)
     }
 
 // 滚轮缩放处理
@@ -373,7 +376,7 @@ class CanvasManager {
 
 // 重绘所有内容
     redrawAll() {
-        // this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         this.ctx.save();
         this.applyTransform();

@@ -40,12 +40,6 @@ class MindMapManager {
         this.draw();
     }
 
-    addLink(link) {
-        this.links[link.id] = link;
-        this.canvasManager.actionStack.push({type: 'addLink', link});
-        this.canvasManager.redrawAll();
-    }
-
     draw() {
         const ctx = this.canvasManager.ctx,
             selectedNodeId = this.selectedNodeId,
@@ -131,9 +125,9 @@ class MindMapManager {
         if (!this.draggingNode) return false;
         const {draggingNode} = this;
         this.draggingNode = null;
-        console.log(draggingNode);
+        // console.log(draggingNode);
         //TODO:把移动之后的节点放回到栈顶 同时还要兼顾undo时能恢复节点到之前的位置
-        this.nodeStacks.push(this.selectedNodeClientId, draggingNode.id, draggingNode);
+        // this.nodeStacks.push(this.selectedNodeClientId, draggingNode.id, draggingNode);
         return this.selectedNodeId;
     }
 
