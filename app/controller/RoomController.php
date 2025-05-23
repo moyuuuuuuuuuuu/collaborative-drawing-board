@@ -4,7 +4,7 @@ namespace app\controller;
 
 
 use app\model\Room;
-use app\service\draw\RedisKeyName;
+use app\enums\RedisKeyName;
 use app\traits\Jump;
 use support\Redis;
 use support\Request;
@@ -76,7 +76,7 @@ class RoomController extends Base
 
     public function index(Request $request, $s)
     {
-        return view('room/index', [
+        return view('room/room', [
             's'        => $s,
             'clientId' => $request->userInfo->uniqueKey,
             'userId'   => $request->userInfo->id,

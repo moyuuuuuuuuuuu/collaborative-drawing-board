@@ -21,6 +21,13 @@ class LineSegmentQueue implements Consumer
      *     x:int,
      *     y:int,
      *     color:string,
+     *     data:array{
+     *         width:int,
+     *         height:int,
+     *         text:string,
+     *         parent:int,
+     *     },
+     *     type:int,
      *     size:int
      * } $data
      * @return void
@@ -36,6 +43,8 @@ class LineSegmentQueue implements Consumer
             'size'      => $data['size'],
             'id'        => $data['id'],
             'stroke_id' => $data['strokeId'],
+            'type'      => $data['type'],
+            'data'      => json_encode($data['data']),
         ]);
     }
 }

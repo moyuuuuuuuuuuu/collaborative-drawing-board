@@ -5,6 +5,7 @@ class WebsocketManager {
         this.userId = options.userId;
         this.username = options.username;
         this.url = options.url || `ws://127.0.0.1:8888/${this.groupId}/${this.clientId}/${this.userId}`;
+        this.enableCursor = options.enableCursor || false;
 
         this.ws = null;
         this.isConnected = false;
@@ -20,7 +21,7 @@ class WebsocketManager {
 
         // 回调函数
         this.callbacks = {
-            onConnect: null,
+            onConnected: null,
             onDisconnect: null,
             onMessage: null,
             onError: null,
@@ -38,7 +39,7 @@ class WebsocketManager {
 
         // 消息处理器
         this.messageHandlers = {
-            connect: this.handleConnect.bind(this),
+            connected: this.handleConnect.bind(this),
             draw: this.handleDraw.bind(this),
             stroke: this.handleStroke.bind(this),
             cursor: this.handleCursor.bind(this),
@@ -46,12 +47,14 @@ class WebsocketManager {
             leave: this.handleLeave.bind(this),
             failure: this.handleFailure.bind(this),
             notice: this.handleNotice.bind(this),
-            ping: this.handlePing.bind(this),
+            pong: this.handlePong.bind(this),
             blob: this.handleBlobRequest.bind(this),
             blobToDraw: this.handleBlobReceive.bind(this),
             doUndo: this.handleDoUndo.bind(this),
             doRedo: this.handleDoRedo.bind(this)
         };
+
+        this.onMaxReconnectFail = null;
 
         this.init();
     }
@@ -124,7 +127,7 @@ class WebsocketManager {
             const binaryData = new Uint8Array(arrayBuffer.slice(binaryDataStart));
             const binaryBlob = new Blob([binaryData]);
 
-            const { cmd, message, data } = meta;
+            const {cmd, message, data} = meta;
 
             // 调用对应的处理器
             if (this.messageHandlers[cmd]) {
@@ -173,6 +176,7 @@ class WebsocketManager {
             }, delay);
         } else {
             console.error('已达到最大重连次数，停止重连');
+            this.onMaxReconnectFail && this.onMaxReconnectFail();
         }
     }
 
@@ -184,7 +188,7 @@ class WebsocketManager {
         }
 
         try {
-            const meta = { cmd, data };
+            const meta = {cmd, data};
             const jsonBytes = new TextEncoder().encode(JSON.stringify(meta));
             const jsonLength = jsonBytes.length;
             const binaryBytes = binaryBuffer ? new Uint8Array(binaryBuffer) : new Uint8Array(0);
@@ -219,8 +223,8 @@ class WebsocketManager {
         this.isManager = data.isManager;
         this.memberList = data.members || [];
 
-        if (this.callbacks.onConnect) {
-            this.callbacks.onConnect(message, data);
+        if (this.callbacks.onConnected) {
+            this.callbacks.onConnected(message, data);
         }
     }
 
@@ -237,7 +241,8 @@ class WebsocketManager {
     }
 
     handleCursor(message, data) {
-        const { userId, x, y, color = '#ff0000', name = '' } = data;
+        if (!this.enableCursor) return;
+        const {userId, x, y, color = '#ff0000', name = ''} = data;
 
         // 不处理自己的光标
         if (userId === this.userId) return;
@@ -287,15 +292,12 @@ class WebsocketManager {
 
     handleNotice(message, data) {
         console.log('通知:', message);
-
         if (this.callbacks.onMessage) {
             this.callbacks.onMessage(message, data);
         }
     }
 
-    handlePing(message, data) {
-        // 响应心跳
-        this.send('pong', {});
+    handlePong(message, data) {
     }
 
     handleBlobRequest(message, data) {
@@ -370,6 +372,7 @@ class WebsocketManager {
 
     // 发送光标位置（使用原始屏幕坐标）
     sendCursor(clientX, clientY) {
+        if (!this.enableCursor) return;
         this.send('cursor', {
             userId: this.userId,
             x: clientX,
@@ -381,17 +384,17 @@ class WebsocketManager {
 
     // 发送撤销命令
     sendUndo(strokeId) {
-        this.send('undo', { strokeId });
+        this.send('undo', {strokeId});
     }
 
     // 发送重做命令
     sendRedo(strokeId) {
-        this.send('redo', { strokeId });
+        this.send('redo', {strokeId});
     }
 
     // 发送踢人命令
     sendKick(clientId) {
-        this.send('kick', { clientId });
+        this.send('kick', {clientId});
     }
 
     // 发送快照
@@ -401,7 +404,7 @@ class WebsocketManager {
 
     // 发送二进制数据
     sendBlob(clientId, binaryBuffer) {
-        this.send('blob', { clientId }, binaryBuffer);
+        this.send('blob', {clientId}, binaryBuffer);
     }
 
     // 心跳机制

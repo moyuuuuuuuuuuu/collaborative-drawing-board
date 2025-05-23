@@ -165,7 +165,6 @@
         const {form, element, layer, $, colorpicker, slider, util} = layui
             , bgCanvas = document.getElementById("bgCanvas")
             , bgCtx = bgCanvas.getContext('2d')
-            , selector = document.getElementById('bgSelector')
             , canvas = document.getElementById('board')
             , ctx = canvas.getContext('2d')
             , cursorContainer = document.getElementById('cursors')
@@ -180,9 +179,9 @@
             gray: '灰色',
             green: '护眼绿',
         };
+
         let currentStyle = 'default'
             , scale = 1
-            , isGrid = false
             , isErasing = false
             , isDragging = false
             , isDrawing = false
@@ -232,9 +231,10 @@
             }
         }, 1000 * 10)
 
-        setInterval(() => {
+        const heartInterval = setInterval(() => {
+            send('ping', {})
             events.snapShot();
-        }, 1000 * 5 * 60)
+        }, 30 * 1000)
 
         const events = {
             resizeCanvas: (isFirst = true) => {
@@ -276,7 +276,6 @@
                     }
                     events.redrawAll();
                 } catch (e) {
-                    console.warn(e)
                     if (isShowMsg) {
                         layer.msg('没有可撤销的操作');
                     }
@@ -761,7 +760,9 @@
                 console.log(message, data)
             },
             notice: (message, data) => layer.msg(message),
-            ping: () => send('pong', {}),
+            pong: (message, data) => {
+
+            },
             blob: (message, data) => {
                 canvas.toBlob(function (blob) {
                     if (!blob) return;
@@ -828,7 +829,10 @@
         ws.onclose = event => {
             // 关闭 WebSocket 连接时触发 ,导出canvas
             events.snapShot();
-
+            if (ws) {
+                ws.close();
+            }
+            clearInterval(heartInterval)
             layer.msg('连接已断开');
         };
     });

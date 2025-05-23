@@ -38,7 +38,7 @@
             transform: translateX(-50%);
             z-index: 1000;
             background: white;
-            padding: 8px;
+            padding: 0 8px;
             border-radius: 8px;
             box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
             display: flex;
@@ -48,9 +48,15 @@
             width: 25%;
         }
 
+
         #toolbar .iconfont {
             font-size: 1.5rem;
             margin: 0 .4rem;
+        }
+
+        #toolbar .active {
+            background: #f2f2f2;
+            padding: 0 10px;
         }
 
         .user-list {
@@ -91,6 +97,7 @@
             width: 5px;
             height: 5px;
             pointer-events: none;
+            z-index: 11;
         }
 
         .slider-bar {
@@ -102,8 +109,8 @@
 
         .zoom-controls {
             position: fixed;
-            right: 15px;
-            bottom: 180px;
+            left: 20px;
+            bottom: 140px;
             z-index: 10;
             background: white;
             padding: 8px;
@@ -129,8 +136,8 @@
 
         .zoom-info {
             position: fixed;
-            left: 20px;
-            top: 40px;
+            left: 22px;
+            bottom: 100px;
             z-index: 10;
             background: rgba(0, 0, 0, 0.7);
             color: white;
@@ -146,12 +153,16 @@
         .guide {
             position: fixed;
             right: 15px;
-            top: 25%;
+            bottom: 15px;
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 10;
         }
 
         .guide .layui-icon {
-            font-size: 3rem;
+            font-size: 1.5rem;
         }
+
     </style>
 </head>
 <body>
@@ -160,11 +171,13 @@
 <div id="cursors" style="position: absolute; top: 0; left: 0; z-index: 999;"></div>
 
 <div id="toolbar">
-    <i class="iconfont icon-brush" lay-on="pen"></i>
-    <i class="iconfont icon-eraser" lay-on="eraser"></i>
-    <i class="iconfont icon-undo" lay-on="undo"></i>
-    <i class="iconfont icon-undo icon-redo" lay-on="redo"></i>
-    <i class="iconfont icon-share" lay-on="share"></i>
+    <i class="iconfont icon-huabi active" lay-active="pen"></i>
+    <i class="iconfont icon-eraser" lay-active="eraser"></i>
+    <i class="iconfont icon-drag" lay-active="drag"></i>
+    <i class="iconfont icon-undo" lay-active="undo"></i>
+    <i class="iconfont icon-undo icon-redo" lay-active="redo"></i>
+    <i class="iconfont icon-share" lay-active="share"></i>
+    <i class="layui-icon layui-icon-addition" lay-active="addNode"></i>
     <div id="colorpicker"></div>
 </div>
 
@@ -181,33 +194,41 @@
 <div class="zoom-info" id="zoomInfo">100%</div>
 
 <div id="pencil" class="pencil"></div>
+
 <ul class="user-list" id="userList"></ul>
+
 <div class="current-user"><?= $userName?></div>
 
 <script src="/static/layui/layui.js"></script>
-<script src="/static/js/draw/helper.js"></script>
 <script src="/static/js/common.js"></script>
+<script src="/static/draw/js/Stack.js"></script>
 <script src="/static/iconfont/iconfont.js"></script>
-<script src="/static/js/draw/canvasManager.js"></script>
-<script src="/static/js/draw/WebsocketManager.js"></script>
+<script src="/static/draw/js/MindMasterManager.js"></script>
+<script src="/static/draw/js/CanvasManager.js"></script>
+<script src="/static/draw/js/WebsocketManager.js"></script>
 <script>
     layui.use(async () => {
-        const {form, element, layer, $, colorpicker, slider, util} = layui;
+        const {form, layer, $, colorpicker, slider, util} = layui;
 
         // 配置参数
         const config = {
-            groupId: '<?= $s ?>',
-            userId: '<?= $userId?>',
-            clientId: '<?= $clientId?>',
-            userName: '<?= $userName?>',
-            wsUrl: `ws://127.0.0.1:8888/<?= $s ?>/<?= $clientId?>/<?= $userId?>`
-        };
+                groupId: '<?= $s ?>',
+                userId: '<?= $userId?>',
+                clientId: '<?= $clientId?>',
+                userName: '<?= $userName?>',
+                wsUrl: `ws://127.0.0.1:8888/<?= $s ?>/<?= $clientId?>/<?= $userId?>`,
+                enableCursor: false
+            },
+            actionStack = new ActionStack(),
+            redoStack = new RedoStack();
 
         // 初始化Canvas管理器
         const canvasManager = new CanvasManager('board', 'bgCanvas', {
             color: '#000000',
-            size: 5
-        });
+            size: 5,
+            enableCursor: config.enableCursor,
+        }, actionStack, redoStack, layer);
+
         canvasManager.setClientId(config.clientId);
 
         // 初始化WebSocket管理器
@@ -216,7 +237,8 @@
             clientId: config.clientId,
             userId: config.userId,
             username: config.userName,
-            url: config.wsUrl
+            url: config.wsUrl,
+            enableCursor: config.enableCursor,
         });
 
         // 用户界面状态
@@ -231,7 +253,7 @@
         initializeUI();
 
         // 绑定事件
-        bindEvents();
+        bindKeyDownEvents();
 
         // 启动空闲检测
         startIdleDetection();
@@ -268,10 +290,15 @@
             canvasManager.onRedo = (data) => {
                 wsManager.sendRedo(data.strokeId);
             };
-
+            canvasManager.onZoomChange = function (scale) {
+                updateZoomInfo(); // 复用已有方法
+            };
             // WebSocket事件 -> Canvas
-            wsManager.on('connect', (message, data) => {
+            wsManager.on('connected', (message, data) => {
                 layer.msg(message);
+                if (data === undefined) {
+                    return false;
+                }
                 updateUserList(data.members || []);
 
                 if (!data.isFirst) {
@@ -283,10 +310,13 @@
             });
 
             wsManager.on('draw', (message, data) => {
+                console.log(data, 'drawRemoteStroke')
                 canvasManager.drawRemoteStroke(data);
             });
 
             wsManager.on('strokeLoad', (message, data) => {
+
+                console.log(data, 'strokeLoad')
                 canvasManager.loadStrokes(data.strokeList, data.reDraw);
             });
 
@@ -343,6 +373,15 @@
                 console.error('WebSocket error:', error);
                 layer.msg('连接出现错误');
             });
+            wsManager.onMaxReconnectFail = () => {
+                layer.confirm('连接失败次数过多，请检查网络或联系管理员', {
+                    btn: ['确定', '关闭']
+                }, function () {
+                    window.location.href = '/';
+                }, function () {
+                    layer.close(confirmIdx);
+                });
+            }
         }
 
         function initializeUI() {
@@ -356,7 +395,7 @@
             });
 
             // 大小滑块
-            const sliderInstance = slider.render({
+            slider.render({
                 elem: '#slider',
                 min: 1,
                 max: 30,
@@ -368,29 +407,6 @@
                     canvasManager.setSize(value);
                 }
             });
-
-            // 工具栏事件
-            const events = {
-                pen: () => canvasManager.setPenMode(),
-                eraser: () => canvasManager.setEraserMode(),
-                undo: () => {
-                    if (!canvasManager.undo()) {
-                        layer.msg('没有可撤销的操作');
-                    }
-                },
-                redo: () => {
-                    if (!canvasManager.redo()) {
-                        layer.msg('没有可重做的操作');
-                    }
-                },
-                share: () => {
-                    navigator.clipboard.writeText(window.location.href)
-                        .then(() => layer.msg('链接已复制'))
-                        .catch(() => layer.msg('复制失败'));
-                }
-            };
-
-            util.on('lay-on', events);
 
             // 缩放控制
             document.getElementById('zoomIn').addEventListener('click', () => {
@@ -406,41 +422,6 @@
             document.getElementById('resetZoom').addEventListener('click', () => {
                 canvasManager.resetZoom();
                 updateZoomInfo();
-            });
-
-            // 右侧固定栏
-            util.fixbar({
-                bars: [
-                    {
-                        type: 'style',
-                        content: '背景风格',
-                        icon: 'layui-icon-theme'
-                    },
-                    {
-                        type: 'guide',
-                        content: '快捷键指南',
-                        icon: 'layui-icon-help'
-                    }
-                ],
-                on: {
-                    mouseenter: function (type) {
-                        layer.tips($(this).text(), this, {
-                            tips: 4,
-                            fixed: true
-                        });
-                    },
-                    mouseleave: function (type) {
-                        layer.closeAll('tips');
-                    },
-                    click: type => {
-                        if (type === 'style') {
-                            showStyleSelector();
-                        } else if (type === 'guide') {
-                            console.log(12312312)
-                            showGuide();
-                        }
-                    }
-                }
             });
 
             // 样式选择表单事件
@@ -461,11 +442,48 @@
                     }, function () {
                         layer.close(confirmIdx);
                     });
+                },
+                pen: (othis, e) => {
+                    canvasManager.setPenMode()
+                    $('#toolbar').find('.active').removeClass('active');
+                    $(othis).addClass('active');
+                },
+                eraser: (othis, e) => {
+                    canvasManager.setEraserMode()
+                    $('#toolbar').find('.active').removeClass('active');
+                    $(othis).addClass('active');
+                },
+                undo: (othis, e) => {
+                    if (!canvasManager.undo()) {
+                        layer.msg('没有可撤销的操作');
+                    }
+                },
+                redo: (othis, e) => {
+                    if (!canvasManager.redo()) {
+                        layer.msg('没有可重做的操作');
+                    }
+                },
+                drag: (othis, e) => {
+                    canvasManager.setDragMode();
+                    $('#toolbar').find('.active').removeClass('active');
+                    $(othis).addClass('active');
+                },
+                share: () => {
+                    navigator.clipboard.writeText(window.location.href)
+                        .then(() => layer.msg('链接已复制'))
+                        .catch(() => layer.msg('复制失败'));
+                },
+                guide: () => {
+                    showGuide();
+                },
+                addNode: () => {
+                    canvasManager.mindMap.addNode('节点');
                 }
             });
         }
 
-        function bindEvents() {
+        function bindKeyDownEvents() {
+            document.addEventListener('contextmenu', e => e.preventDefault());
             // 键盘快捷键
             document.addEventListener('keydown', (event) => {
                 if (event.ctrlKey && event.key === 'z') {
@@ -608,7 +626,6 @@
             setInterval(() => {
                 if (Date.now() - lastDrawTime > 60 * 10 * 1000) {
                     if (confirmIdx) return;
-
                     let second = 5;
                     const timer = setInterval(() => {
                         second--;
@@ -621,7 +638,6 @@
                             document.querySelector('.layui-layer-btn0').click();
                         }
                     }, 1000);
-
                     confirmIdx = layer.confirm(`你已经离开协作画板一段时间，${second}秒后自动退出，是否确认？`, {
                         btn: ['确定', '关闭'],
                         time: 5 * 1000,
@@ -637,7 +653,7 @@
                         confirmIdx = null;
                     });
                 }
-            }, 1000 * 10); // 10分钟检测一次
+            }, 1000 * 10);
         }
 
         function startAutoSnapshot() {

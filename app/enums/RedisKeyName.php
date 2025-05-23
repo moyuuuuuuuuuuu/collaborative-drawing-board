@@ -1,12 +1,14 @@
 <?php
 
-namespace app\service\draw;
+namespace app\enums;
 
 enum RedisKeyName: string
 {
     case LINESEGMENT_QUEUE_NAME = 'LineSegment';
     case JOIN_ROOM_QUEUE_NAME   = 'JoinRoom';
     case LEAVE_ROOM_QUEUE_NAME  = 'LeaveRoom';
+    case UNDO_QUEUE_NAME        = 'Undo';
+    case REDO_QUEUE_NAME        = 'Redo';
     case INFO                   = 'room:%s:info';
     case STROKE_LIST_NAME       = 'room:%s:stroke:%s';
     case STROKE_SCORE_NAME      = 'room:%s:score:stroke:%s';

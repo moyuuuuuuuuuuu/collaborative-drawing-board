@@ -2,8 +2,10 @@
 
 namespace app\service\draw\helper;
 
-use app\service\draw\{RedisKeyName,RoomManager};
+use app\enums\RedisKeyName;
+use app\service\draw\{RoomManager};
 use support\Redis;
+use Webman\RedisQueue\Client;
 
 class LineSegment
 {
@@ -37,6 +39,7 @@ class LineSegment
         Redis::zRem(sprintf(RedisKeyName::STROKE_LIST_NAME->value, $roomId, $clientId), $strokeId);
         $score = Redis::incr(sprintf(RedisKeyName::REDO_SCORE_NAME->value, $roomId, $clientId));
         Redis::zAdd(sprintf(RedisKeyName::REDO_LIST_NAME->value, $roomId, $clientId), $score, $strokeId);
+        Client::send(RedisKeyName::UNDO_QUEUE_NAME->value, $strokeId);
     }
 
     static function redo(string $roomId, string $clientId, string $strokeId): void
@@ -44,6 +47,7 @@ class LineSegment
         Redis::zRem(sprintf(RedisKeyName::REDO_LIST_NAME->value, $roomId, $clientId), $strokeId);
         $score = Redis::incr(sprintf(RedisKeyName::STROKE_SCORE_NAME->value, $roomId, $clientId));
         Redis::zAdd(sprintf(RedisKeyName::STROKE_LIST_NAME->value, $roomId, $clientId), $score, $strokeId);
+        Client::send(RedisKeyName::REDO_QUEUE_NAME->value, $strokeId);
     }
 
     static function getPointsOfStroke(string $roomId, string $clientId, string $strokeId): array
@@ -51,18 +55,7 @@ class LineSegment
         $results     = [];
         $pointIdList = Redis::lRange(sprintf(RedisKeyName::POINT_LIST_NAME->value, $roomId, $clientId, $strokeId), 0, -1);
         foreach ($pointIdList as $pointId) {
-            $point     = Redis::hGetAll(sprintf(RedisKeyName::POINT_HASH_NAME->value, $roomId, $clientId, $pointId));
-            $results[] = [
-                'id'       => $pointId,
-                'point'    => [
-                    'x'     => $point['x'],
-                    'y'     => $point['y'],
-                    'color' => $point['color'],
-                    'size'  => $point['size'],
-                ],
-                'isStart'  => (bool)$point['isStart'],
-                'strokeId' => $point['strokeId'],
-            ];
+            $results[] = Redis::hGetAll(sprintf(RedisKeyName::POINT_HASH_NAME->value, $roomId, $clientId, $pointId));
         }
         return $results;
     }

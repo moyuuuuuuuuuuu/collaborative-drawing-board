@@ -3,6 +3,7 @@
 namespace app\service\draw;
 
 use Webman\RedisQueue\Client;
+use app\enums\RedisKeyName;
 
 /**
  * 房间管理器
@@ -37,16 +38,8 @@ class RoomManager
                 'leaveAt'  => date("Y-m-d H:i:s"),
                 'isKicked' => $connection->isKicked ?? false,
             ]);
-        } else {
-            Client::send(RedisKeyName::LEAVE_ROOM_QUEUE_NAME, [
-                'roomKey'  => $roomId,
-                'clientId' => $clientId,
-                'leaveAt'  => date("Y-m-d H:i:s"),
-                'isKicked' => false,
-            ]);
         }
         unset(self::$connectionList[$roomId][$clientId]);
-
     }
 
     static public function getMembers($roomId)

@@ -49,3 +49,40 @@ async function initUser() {
 function getRandomColor() {
     return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
 }
+
+function createMethodCallListener(targetClass, methodNames, callback) {
+    // 创建一个新的构造函数，继承自目标类
+    function ProxyClass(...args) {
+        // 调用原始类的构造函数
+        const instance = Reflect.construct(targetClass, args, ProxyClass);
+
+        // 为实例创建代理，监听方法调用
+        return new Proxy(instance, {
+            get(target, prop, receiver) {
+                const value = Reflect.get(target, prop, receiver);
+
+                // 如果属性是函数且在监听列表中
+                if (typeof value === 'function' && methodNames.includes(prop)) {
+                    return function (...args) {
+                        // 调用前触发回调
+                        callback(prop, args);
+
+                        // 使用 Reflect.apply 确保正确的 this 上下文
+                        return Reflect.apply(value, target, args);
+                    };
+                }
+
+                return value;
+            }
+        });
+    }
+
+    // 设置正确的原型链
+    ProxyClass.prototype = Object.create(targetClass.prototype);
+    ProxyClass.prototype.constructor = ProxyClass;
+
+    // 复制静态属性
+    Object.assign(ProxyClass, targetClass);
+
+    return ProxyClass;
+}

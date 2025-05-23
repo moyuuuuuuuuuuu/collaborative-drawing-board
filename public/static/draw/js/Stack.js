@@ -57,6 +57,7 @@ class Stack {
         return {strokeId: lastNode.strokeId, points: lastNode.points};
     }
 
+
     getStrokes(userId) {
         const userData = this.stack.get(userId);
         if (!userData || !userData.head) {
@@ -97,6 +98,11 @@ class Stack {
 
         return allStrokes;
     }
+
+    length(userId) {
+        const userData = this.stack.get(userId);
+        return userData ? userData.size : 0;
+    }
 }
 
 
@@ -104,4 +110,79 @@ class ActionStack extends Stack {
 }
 
 class RedoStack extends Stack {
+}
+
+class MindMasterNode extends Node {
+    setOriginalPrevStrokeId(strokeId) {
+        this.originalPrevStrokeId = strokeId
+    }
+}
+
+class MindMasterNodes extends Stack {
+
+    push(userId, strokeId, points) {
+        if (!this.stack.has(userId)) {
+            this.stack.set(userId, {head: null, tail: null, size: 0, nodeMap: new Map()});
+        }
+
+        const userData = this.stack.get(userId);
+        const newNode = new MindMasterNode(strokeId, points);
+
+        if (userData.tail) {
+            userData.tail.next = newNode;
+            newNode.prev = userData.tail;
+            userData.tail = newNode;
+        } else {
+            userData.head = userData.tail = newNode;
+        }
+        userData.nodeMap.set(strokeId, newNode);
+
+        userData.size++;
+    }
+
+    getOne(userId, strokeId) {
+        const userData = this.stack.get(userId);
+        if (!userData) return null;
+
+        let current = userData.head;
+        while (current) {
+            if (current.strokeId === strokeId) {
+                return current.points;
+            }
+            current = current.next;
+        }
+
+        return null; // 没找到对应的 strokeId
+    }
+
+    getOneByStrokeId(strokeId) {
+        for (const [, userData] of this.stack.entries()) {
+            if (userData.nodeMap.has(strokeId)) {
+                return userData.nodeMap.get(strokeId);
+            }
+        }
+        return null;
+    }
+
+    moveToTopByStrokeId(userId, strokeId) {
+        const userData = this.stack.get(userId);
+        if (!userData || userData.size < 2) return;
+
+        const node = userData.nodeMap.get(strokeId);
+        if (!node || node === userData.tail) return; // 已在栈顶，无需处理
+
+        // 移除节点
+        if (node.prev) node.prev.next = node.next;
+        if (node.next) node.next.prev = node.prev;
+
+        if (node === userData.head) {
+            userData.head = node.next;
+        }
+
+        // 插入到尾部
+        node.prev = userData.tail;
+        node.next = null;
+        userData.tail.next = node;
+        userData.tail = node;
+    }
 }

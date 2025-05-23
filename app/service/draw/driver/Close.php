@@ -11,7 +11,6 @@ class Close extends Package
 
     public function execute(?TcpConnection $connection)
     {
-        var_dump('用户离开');
         $roomId   = $connection->roomId;
         $clientId = $connection->clientId;
         RoomManager::leaveRoom($roomId, $clientId);
