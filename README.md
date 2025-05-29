@@ -15,7 +15,7 @@
 cp.env.example .env
 ```
 
-### 运行 
+### 运行
 ```shell
 #linux
 php start.php start （-d 守护进程模式）
@@ -48,8 +48,9 @@ server{
     }
 
     # WebSocket 代理配置
-    location /wss {
-        proxy_pass http://127.0.0.1:8888;
+    location /wss/ {
+        proxy_pass http://127.0.0.1:8888/;  # 注意末尾的斜杠，确保路径正确传递
+
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -60,11 +61,15 @@ server{
         
         # WebSocket 长连接超时设置
         proxy_connect_timeout 60s;
-        proxy_send_timeout 3600s;  # 1小时，根据业务调整
-        proxy_read_timeout 3600s;  # 1小时，根据业务调整
+        proxy_send_timeout 3600s;
+        proxy_read_timeout 3600s;
         
         # 禁用缓冲区，避免 WebSocket 消息延迟
         proxy_buffering off;
+        
+        # 添加额外的 WebSocket 相关头（可选）
+        proxy_set_header X-Forwarded-Host $host:$server_port;
+        proxy_set_header X-Forwarded-Server $host;
     }
 }
 ```
@@ -73,4 +78,3 @@ server{
 - 思维导图
 - 流程图
 - 拖拽图形、画布
-
