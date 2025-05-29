@@ -1,6 +1,14 @@
 ### 协作画板
 
-基于webman框架的协作画板，支持多人协作，支持画笔、橡皮擦、颜色选择、历史记录、分享链接、undo/redo等功能。
+基于webman框架的协作画板，支持多人协作，支持画笔、橡皮擦、颜色选择、分享链接、undo/redo等功能。
+
+#### 功能
+- 多人协作
+- 画笔、橡皮擦
+- 颜色选择、画笔粗细
+- udo/redo
+- 分享链接
+- 房间管理
 
 ### 配置
 ```
@@ -8,17 +16,61 @@ cp.env.example .env
 ```
 
 ### 运行 
-详见webman框架文档
-简略命令
 ```shell
 #linux
-php start.php
+php start.php start （-d 守护进程模式）
 #win
 php windows.php
 ```
 
+#### nginx配置
+```nginx configuration
+server{
+    listen 80;
+    server_name test.example.com
+     # 普通 HTTP 请求代理到 8080 端口
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 调整代理缓冲区大小（根据需要）
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
 
-### 访问
+    # WebSocket 代理配置
+    location /wss {
+        proxy_pass http://127.0.0.1:8888;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket 长连接超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 3600s;  # 1小时，根据业务调整
+        proxy_read_timeout 3600s;  # 1小时，根据业务调整
+        
+        # 禁用缓冲区，避免 WebSocket 消息延迟
+        proxy_buffering off;
+    }
+}
 ```
-http://localhost:8080
-```
+
+### FEAUTURES
+- 思维导图
+- 流程图
+- 拖拽图形、画布
+
