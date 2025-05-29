@@ -173,7 +173,7 @@
 <div id="toolbar">
     <i class="iconfont icon-huabi active" lay-active="pen"></i>
     <i class="iconfont icon-eraser" lay-active="eraser"></i>
-    <i class="iconfont icon-drag" lay-active="drag"></i>
+<!--    <i class="iconfont icon-drag" lay-active="drag"></i>-->
     <i class="iconfont icon-undo" lay-active="undo"></i>
     <i class="iconfont icon-undo icon-redo" lay-active="redo"></i>
     <i class="iconfont icon-share" lay-active="share"></i>
@@ -209,14 +209,13 @@
 <script>
     layui.use(async () => {
         const {form, layer, $, colorpicker, slider, util} = layui;
-
         // 配置参数
         const config = {
                 groupId: '<?= $s ?>',
                 userId: '<?= $userId?>',
                 clientId: '<?= $clientId?>',
                 userName: '<?= $userName?>',
-                wsUrl: `ws://127.0.0.1:8888/<?= $s ?>/<?= $clientId?>/<?= $userId?>`,
+                wsUrl: `<?= $host?>/<?= $s ?>/<?= $clientId?>/<?= $userId?>`,
                 enableCursor: false
             },
             actionStack = new ActionStack(),

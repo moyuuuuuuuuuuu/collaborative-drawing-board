@@ -73,14 +73,15 @@ class RoomController extends Base
         return $this->res(400, '创建房间失败');
     }
 
-
     public function index(Request $request, $s)
     {
+        $host = $request->host(true);
         return view('room/room', [
             's'        => $s,
             'clientId' => $request->userInfo->uniqueKey,
             'userId'   => $request->userInfo->id,
             'userName' => $request->userInfo->username,
+            'host'     => sprintf('ws://%s%s', $host, config('app.debug') ? ':8888' : '/wss')
         ]);
     }
 }
