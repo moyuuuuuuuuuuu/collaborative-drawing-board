@@ -1,6 +1,8 @@
-assets/*
-!assets/.gitignore
-protected/runtime/*
-!protected/runtime/.gitignore
-protected/data/*.db
-themes/classic/views/
+/runtime
+/.idea
+/.vscode
+/vendor
+*.log
+.env
+/tests/tmp
+/tests/.phpunit.result.cache

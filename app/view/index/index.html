@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>协作画板</title>
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0 10px;
+        }
+
+        .layui-carousel img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layui-rows">
+    <div class="layui-col-xs6 layui-padding-3">
+        <fieldset class="layui-elem-field ">
+            <legend>你创建的房间</legend>
+            <div class="layui-field-box">
+                <div class="layui-carousel" id="createRooms">
+                    <div carousel-item class="carousel-item">
+
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    </div>
+    <div class="layui-col-xs6 layui-padding-3">
+        <fieldset class="layui-elem-field">
+            <legend>你加入的房间</legend>
+            <div class="layui-field-box">
+                <div class="layui-carousel" id="joinedRooms">
+                    <div carousel-item class="carousel-item">
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    </div>
+</div>
+
+
+</body>
+<script src="/static/layui/layui.js"></script>
+<script src="/static/js/common.js"></script>
+<script>
+
+    layui.use(function () {
+        const layer = layui.layer,
+            $ = layui.jquery,
+            util = layui.util,
+            carousel = layui.carousel;
+
+        util.fixbar({
+            bars: [
+                {
+                    type: 'createRoom',
+                    content: '创建并打开画布',
+                    icon: 'layui-icon-addition'
+                }
+            ],
+            on: {
+                mouseenter: function (type) {
+                    layer.tips($(this).text(), this, {
+                        tips: 4,
+                        fixed: true
+                    });
+                },
+                mouseleave: function (type) {
+                    layer.closeAll('tips');
+                },
+                click: type => {
+                    switch (type) {
+                        case 'createRoom':
+                            const userId = localStorage.getItem('userId'),
+                                authorizationStyle = localStorage.getItem('authorizationStyle'),
+                                loading = layer.load(0, {shade: false});
+                            fetch('/room/create', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `${authorizationStyle}   ${userId}`,
+                                },
+                            }).then(res => res.json()).then(data => {
+                                layer.close(loading)
+                                if (data.code === 200) {
+                                    layer.confirm('创建成功，是否进入画布？', {btn: ['是', '否']}, function () {
+                                        window.location.href = `/r/${data.data.unique_key}`;
+                                    }, function () {
+                                        layer.closeAll();
+                                    })
+                                }
+                            })
+                            break;
+                    }
+                }
+            }
+        })
+        initUser();
+        //获取画室列表
+        loadRoomList();
+        loadJoinedRoomList();
+
+        function loadJoinedRoomList() {
+            fetch('rooms/joined', {
+                method: 'POST',
+            }).then(res => res.json()).then(function (data) {
+                if (data.code == 1) {
+                    $('#joinedRooms .carousel-item').children('div').remove();
+                    data.data.forEach(item => {
+                        $('#joinedRooms .carousel-item').append(`<div lay-active="intoRoom" data-key="${item.unique_key}" ><img src="${item.snapshot}"></div>`)
+                    })
+                    carousel.render({
+                        elem: '#joinedRooms',
+                        width: 'auto',
+                        height: '500px'
+                    });
+                }
+            })
+        }
+
+        function loadRoomList() {
+            const userId = localStorage.getItem("userId");
+            fetch('rooms', {
+                method: 'POST',
+            }).then((response) => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // 解析为JSON
+            }).then((data) => {
+                if (data.code == 1) {
+                    $('#createRooms .carousel-item').children('div').remove();
+                    data.data.forEach(item => {
+                        $('#createRooms .carousel-item').append(`<div lay-active="intoRoom" data-key="${item.unique_key}" ><img src="${item.snapshot}"></div>`)
+                    })
+                    carousel.render({
+                        elem: '#createRooms',
+                        width: 'auto',
+                        height: '500px'
+                    });
+                    return;
+                }
+
+                //empty
+            }).catch((error) => {
+            })
+        }
+
+        util.on('lay-active', {
+            intoRoom: (othis, e) => {
+                window.location.href = `/r/${e.currentTarget.dataset.key}`;
+            },
+        })
+    })
+
+</script>
+</html>

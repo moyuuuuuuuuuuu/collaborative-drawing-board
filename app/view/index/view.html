@@ -1,0 +1,77 @@
+<canvas id="board"></canvas>
+<div>
+    <input type="color" id="colorPicker">
+    <input type="range" id="sizePicker" min="1" max="20">
+</div>
+<script>
+    async function init() {
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        let color = '#000000';
+        let size = 5;
+        const groupId = await getCanvasId(canvas); // ⬅️ 正确地等待 Promise
+        const userId = 'user1';
+
+        // 初始化 WebSocket
+        const ws = new WebSocket(`ws://127.0.0.1:8888/${groupId}/${userId}`);
+
+        // 监听画笔参数变化
+        document.getElementById('colorPicker').onchange = e => color = e.target.value;
+        document.getElementById('sizePicker').onchange = e => size = e.target.value;
+
+        // 绘图逻辑
+        canvas.addEventListener('mousedown', e => {
+            drawing = true;
+            draw(e);
+        });
+        canvas.addEventListener('mousemove', e => drawing && draw(e));
+        canvas.addEventListener('mouseup', () => drawing = false);
+
+        function draw(e) {
+            const x = e.offsetX;
+            const y = e.offsetY;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // 发送数据到服务端
+            ws.send(JSON.stringify({x, y, color, size}));
+        }
+
+        // 接收其他用户的绘图数据
+        ws.onmessage = event => {
+            const {cmd, message, data} = JSON.parse(event.data);
+            if (typeof dispatch[cmd] === 'function') {
+                dispatch[cmd](message, data);
+            } else {
+                console.warn(`No handler found for cmd: ${cmd}`);
+            }
+            return;
+            const {x, y, color, size} = JSON.parse(event.data);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        };
+    }
+
+    async function getCanvasId(canvas) {
+        const dataUrl = canvas.toDataURL();
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataUrl);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data); // ⬅️ 这里是异步
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    }
+
+    const dispatch = {
+        connect: (message, data) => {
+            console.log(message, data)
+        }
+    }
+    // 启动初始化
+    init();
+</script>
