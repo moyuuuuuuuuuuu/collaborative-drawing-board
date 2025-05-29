@@ -1,0 +1,233 @@
+<button id="addNodeBtn">添加节点</button>
+<canvas id="mindmap" width="1000" height="600" style="border:1px solid #ccc;"></canvas>
+
+<script>
+const canvas = document.getElementById('mindmap');
+const ctx = canvas.getContext('2d');
+const addNodeBtn = document.getElementById('addNodeBtn');
+
+let nodes = [
+];
+
+let selectedNodeId = null;
+let draggingNode = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 画连线
+  for (const node of nodes) {
+    if (node.parent !== null) {
+      const parent = nodes.find(n => n.id === node.parent);
+      if (parent) {
+        ctx.beginPath();
+        ctx.moveTo(parent.x, parent.y);
+        ctx.lineTo(node.x, node.y);
+        ctx.strokeStyle = "#888";
+        ctx.stroke();
+      }
+    }
+  }
+
+  // 画节点
+  for (const node of nodes) {
+    
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, 40, 0, Math.PI * 2);
+    ctx.fillStyle = (node.id === selectedNodeId) ? "#ffd966" : "#fefefe";
+    ctx.fill();
+    ctx.strokeStyle = "#333";
+    ctx.stroke();
+
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "14px Arial";
+    ctx.fillText(node.text, node.x, node.y);
+
+    // 画选中节点右侧的“加号”按钮
+    if (node.id === selectedNodeId) {
+      const plusRadius = 12; // 小圆半径
+      const plusX = node.x + 40 + plusRadius + 5; // 在节点圆右侧一点距离
+      const plusY = node.y;
+
+      // 小圆圈
+      ctx.beginPath();
+      ctx.arc(plusX, plusY, plusRadius, 0, Math.PI * 2);
+      ctx.fillStyle = "#4CAF50";  // 绿色背景
+      ctx.fill();
+      ctx.strokeStyle = "#2E7D32";
+      ctx.stroke();
+
+      // 画“+”号，竖线
+      ctx.beginPath();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.moveTo(plusX, plusY - 6);
+      ctx.lineTo(plusX, plusY + 6);
+      ctx.stroke();
+
+      // 横线
+      ctx.beginPath();
+      ctx.moveTo(plusX - 6, plusY);
+      ctx.lineTo(plusX + 6, plusY);
+      ctx.stroke();
+    }
+  }
+}
+
+
+// 添加节点
+addNodeBtn.addEventListener('click', () => {
+  addNode()
+});
+
+function addNode(){
+    const maxId = nodes.length ? Math.max(...nodes.map(n => n.id)) : 0;
+
+  if (nodes.length === 0 || selectedNodeId === null) {
+    // 新建一个根节点（无父节点）
+    const newRoot = {
+      id: maxId + 1,
+      x: canvas.width / 2 + (Math.random() * 200 - 100),
+      y: 100 + (Math.random() * 100 - 50),
+      text: '新根节点',
+      parent: null
+    };
+    nodes.push(newRoot);
+    selectedNodeId = newRoot.id;
+    draw();
+    return;
+  }
+
+  // 否则在选中节点基础上添加子节点
+  const parent = nodes.find(n => n.id === selectedNodeId);
+  if (!parent) return;
+
+  const newNode = {
+    id: maxId + 1,
+    x: parent.x + (Math.random() * 200 - 100),
+    y: parent.y + 120,
+    text: '新节点',
+    parent: parent.id
+  };
+  nodes.push(newNode);
+  console.log(nodes)
+  selectedNodeId = newNode.id;
+  console.log(selectedNodeId)
+  draw();
+}
+
+// 拖拽逻辑
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  for (const node of nodes) {
+    const dx = mx - node.x;
+    const dy = my - node.y;
+    if (dx * dx + dy * dy < 1600) {
+      selectedNodeId = node.id;
+      draggingNode = node;
+      dragOffsetX = dx;
+      dragOffsetY = dy;
+      draw();
+      break;
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (draggingNode) {
+    const rect = canvas.getBoundingClientRect();
+    draggingNode.x = e.clientX - rect.left - dragOffsetX;
+    draggingNode.y = e.clientY - rect.top - dragOffsetY;
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  draggingNode = null;
+});
+
+// 单击选中
+canvas.addEventListener('click', e => {
+   const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // 先判断是否点击了加号
+  if (selectedNodeId !== null) {
+    const node = nodes.find(n => n.id === selectedNodeId);
+    if (node) {
+      const plusRadius = 12;
+      const plusX = node.x + 40 + plusRadius + 5;
+      const plusY = node.y;
+
+      const dx = mx - plusX;
+      const dy = my - plusY;
+      if (dx * dx + dy * dy <= plusRadius * plusRadius) {
+        // 点击了加号
+        addNode()
+        return;
+      }
+    }
+  }
+
+  // 普通节点选中逻辑
+  selectedNodeId = null;
+  for (const node of nodes) {
+    const dx = mx - node.x;
+    const dy = my - node.y;
+    if (dx * dx + dy * dy < 1600) {
+      selectedNodeId = node.id;
+      break;
+    }
+  }
+  draw();
+});
+
+canvas.addEventListener('dblclick', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  for (const node of nodes) {
+    const dx = mx - node.x;
+    const dy = my - node.y;
+    if (dx * dx + dy * dy < 1600) {
+      const newText = prompt('请输入新的节点文字：', node.text);
+      if (newText !== null) {
+        node.text = newText.trim() || node.text; // 避免空字符串
+        draw();
+      }
+      break;
+    }
+  }
+});
+
+
+
+// 删除节点
+function deleteNodeAndChildren(id) {
+  const children = nodes.filter(n => n.parent === id);
+  for (const child of children) {
+    deleteNodeAndChildren(child.id);
+  }
+  nodes = nodes.filter(n => n.id !== id);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Backspace' && selectedNodeId !== null) {
+    deleteNodeAndChildren(selectedNodeId);
+    selectedNodeId = null;
+    draw();
+    e.preventDefault();
+  }
+});
+
+draw();
+</script>

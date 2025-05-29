@@ -50,6 +50,7 @@ server{
     # WebSocket 代理配置
     location /wss/ {
         proxy_pass http://127.0.0.1:8888/;  # 注意末尾的斜杠，确保路径正确传递
+
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
