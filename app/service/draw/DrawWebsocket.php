@@ -19,7 +19,10 @@ class DrawWebsocket
         $headers = explode("\r\n", $http_buffer);
         $uriInfo = array_shift($headers);
         list(, $uri,) = explode(' ', $uriInfo);
-        list(, $roomId, $userKey, $userId) = explode('/', $uri);
+        $uriMap               = explode('/', $uri);
+        $userId               = array_pop($uriMap);
+        $userKey              = array_pop($uriMap);
+        $roomId               = array_pop($uriMap);
         $connection->roomId   = $roomId;
         $connection->userId   = $userId;
         $connection->clientId = $userKey;
