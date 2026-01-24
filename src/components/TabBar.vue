@@ -146,7 +146,7 @@ onUnmounted(() => {
     @mousedown="handleMouseDown"
   >
     <!-- 粗细调节面板 -->
-    <div v-if="showThickness" ref="thicknessRef" class="thickness-panel">
+    <div v-if="showThickness" ref="thicknessRef" class="thickness-panel" @mousedown.stop>
       <div class="thickness-label">粗细: {{ lineWidth }}px</div>
       <input 
         type="range" 
@@ -154,6 +154,7 @@ onUnmounted(() => {
         max="50" 
         :value="lineWidth" 
         @input="handleThicknessChange"
+        @mousedown.stop
         class="thickness-slider"
       />
       <div class="thickness-presets">
@@ -168,7 +169,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 颜色调节面板 -->
-    <div v-if="showColors" ref="colorRef" class="color-panel">
+    <div v-if="showColors" ref="colorRef" class="color-panel" @mousedown.stop>
       <div class="color-presets">
         <div 
           v-for="c in presetColors" 
@@ -181,7 +182,7 @@ onUnmounted(() => {
       </div>
       <div class="custom-color">
         <span>自定义:</span>
-        <input type="color" :value="color" @input="handleColorChange" />
+        <input type="color" :value="color" @input="handleColorChange" @mousedown.stop />
       </div>
     </div>
 
