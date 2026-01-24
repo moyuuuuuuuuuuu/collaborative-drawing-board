@@ -3,35 +3,36 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - ts  # 监听 ts 分支的提交
+      - ts # 监听 ts 分支的推送
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build-and-deploy:
+  build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. 拉取代码
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # 2. 设置 Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 20  # 可根据你本地 Node 版本调整
+          node-version: '20'
+          cache: 'npm'
 
-      # 3. 安装依赖
-      - name: Install dependencies
-        run: npm ci
+      - name: Install and Build
+        run: |
+          npm install
+          npm run build # 确保你的 package.json 里有 build 命令，且输出目录是 dist
 
-      # 4. 构建前端
-      - name: Build
-        run: npm run build
-
-      # 5. 部署到 GitHub Pages
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v6
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist  # Vite 默认构建输出目录
-          publish_branch: gh-pages  # GitHub Pages 发布分支
+          path: './dist' # 这里的路径要指向你 build 出来的静态文件夹
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
