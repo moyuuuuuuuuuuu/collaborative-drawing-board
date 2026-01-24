@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, reactive, computed } from 'vue';
 import { io, Socket } from 'socket.io-client';
 import TabBar from './TabBar.vue';
-import { MousePointer2, Maximize2, Minimize2, Users } from 'lucide-vue-next';
+import { MousePointer2, Maximize2, Minimize2, Users, HelpCircle, X } from 'lucide-vue-next';
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -485,6 +485,9 @@ const handleMouseUp = () => {
   drawState.isDrawing = false;
 };
 
+// 帮助弹窗
+const showHelp = ref(false);
+
 // 全屏状态
 const isFullscreen = ref(false);
 
@@ -627,10 +630,51 @@ onMounted(() => {
       @mouseup="handleMouseUp"
       @mouseleave="handleMouseUp"
     ></canvas>
-    <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
-      <Maximize2 v-if="!isFullscreen" :size="20" />
-      <Minimize2 v-else :size="20" />
-    </button>
+    <div class="top-right-controls">
+      <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
+        <Maximize2 v-if="!isFullscreen" :size="20" />
+        <Minimize2 v-else :size="20" />
+      </button>
+      <button class="help-btn" @click="showHelp = true" title="快捷键帮助">
+        <HelpCircle :size="20" />
+      </button>
+    </div>
+
+    <!-- 帮助弹窗 -->
+    <Transition name="fade">
+      <div v-if="showHelp" class="modal-overlay" @click.self="showHelp = false">
+        <div class="help-modal">
+          <div class="modal-header">
+            <h3>快捷键与操作指南</h3>
+            <button class="close-btn" @click="showHelp = false">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="shortcut-item">
+              <span class="key">左键拖拽</span>
+              <span class="desc">在画笔/橡皮擦模式下绘图</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="key">滚轮</span>
+              <span class="desc">以鼠标为中心缩放画布</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="key">中键拖拽</span>
+              <span class="desc">移动/平移画布</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="key">Alt + 左键</span>
+              <span class="desc">移动/平移画布</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="key">点击工具图标</span>
+              <span class="desc">再次点击画笔/橡皮可调节粗细</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <div class="room-info">
       <div class="room-id">房间: {{ roomId }}</div>
@@ -698,10 +742,16 @@ canvas {
   height: 100%;
 }
 
-.fullscreen-btn {
+.top-right-controls {
   position: absolute;
   top: 20px;
   right: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 100;
+}
+
+.fullscreen-btn, .help-btn {
   width: 40px;
   height: 40px;
   display: flex;
@@ -712,15 +762,113 @@ canvas {
   border: 1px solid #ddd;
   border-radius: 8px;
   cursor: pointer;
-  z-index: 10;
   transition: all 0.2s;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  color: #333;
 }
 
-.fullscreen-btn:hover {
+.fullscreen-btn:hover, .help-btn:hover {
   background-color: #fff;
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
+
+.help-modal {
+  background: white;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modal-in 0.3s ease-out;
+}
+
+@keyframes modal-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #eee;
+  color: #333;
+}
+
+.modal-body {
+  padding: 10px 20px 20px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  margin-top: 15px;
+  gap: 15px;
+}
+
+.key {
+  background: #f1f3f5;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #495057;
+  min-width: 90px;
+  text-align: center;
+}
+
+.desc {
+  font-size: 0.9rem;
+  color: #666;
+  flex: 1;
+}
+
+/* 动画 */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 
 .room-info {
