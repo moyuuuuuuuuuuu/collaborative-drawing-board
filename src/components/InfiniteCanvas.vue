@@ -27,9 +27,31 @@ const initRoom = () => {
 initRoom();
 
 // 绘图历史
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Path {
+  id: string;
+  userId: string;
+  points: Point[];
+  color: string | null; // null for eraser
+  lineWidth: number;
+  tool: string;
+}
+
+const paths = ref<Path[]>([]);
+const currentPath = ref<Path | null>(null);
+
+interface Action {
+  type: 'add' | 'remove';
+  path: Path;
+}
+
 const history = reactive<{
-  undoStack: string[];
-  redoStack: string[];
+  undoStack: Action[];
+  redoStack: Action[];
 }>({
   undoStack: [],
   redoStack: [],
@@ -76,11 +98,9 @@ const gridStyle = computed(() => {
 
 let ctx: CanvasRenderingContext2D | null = null;
 
-// 保存当前状态到撤销栈
-const saveHistory = () => {
-  if (!canvasRef.value) return;
-  const dataUrl = canvasRef.value.toDataURL();
-  history.undoStack.push(dataUrl);
+// 保存操作到撤销栈
+const saveHistory = (action: Action) => {
+  history.undoStack.push(JSON.parse(JSON.stringify(action)));
   if (history.undoStack.length > 50) {
     history.undoStack.shift();
   }
@@ -91,54 +111,129 @@ const saveHistory = () => {
 const undo = () => {
   if (history.undoStack.length === 0) return;
   
-  if (canvasRef.value) {
-    history.redoStack.push(canvasRef.value.toDataURL());
+  const action = history.undoStack.pop();
+  if (!action) return;
+
+  if (action.type === 'add') {
+    // 撤销“添加”：从 paths 中移除该路径
+    const index = paths.value.findIndex(p => p.id === action.path.id);
+    if (index !== -1) {
+      paths.value.splice(index, 1);
+      history.redoStack.push(action);
+    }
+  } else if (action.type === 'remove') {
+    // 撤销“移除”：将路径加回 paths
+    paths.value.push(action.path);
+    history.redoStack.push(action);
   }
-  
-  const lastState = history.undoStack.pop();
-  if (lastState) {
-    restoreState(lastState);
-  }
+
+  draw();
+  syncHistory();
 };
 
 // 反撤销
 const redo = () => {
   if (history.redoStack.length === 0) return;
   
-  if (canvasRef.value) {
-    history.undoStack.push(canvasRef.value.toDataURL());
+  const action = history.redoStack.pop();
+  if (!action) return;
+
+  if (action.type === 'add') {
+    // 重做“添加”：将路径加回 paths
+    paths.value.push(action.path);
+    history.undoStack.push(action);
+  } else if (action.type === 'remove') {
+    // 重做“移除”：从 paths 中移除该路径
+    const index = paths.value.findIndex(p => p.id === action.path.id);
+    if (index !== -1) {
+      paths.value.splice(index, 1);
+      history.undoStack.push(action);
+    }
   }
-  
-  const nextState = history.redoStack.pop();
-  if (nextState) {
-    restoreState(nextState);
+
+  draw();
+  syncHistory();
+};
+
+const syncHistory = () => {
+  if (socket) {
+    socket.emit('history-sync', { roomId: roomId.value, paths: JSON.parse(JSON.stringify(paths.value)) });
   }
 };
 
 // 恢复画布状态
-const restoreState = (dataUrl: string, isRemote: boolean = false) => {
-  const img = new Image();
-  img.src = dataUrl;
-  img.onload = () => {
-    if (!ctx || !canvasRef.value) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-    ctx.drawImage(img, 0, 0);
-    
-    // 如果是本地恢复，同步给其他客户端
-    if (!isRemote && socket) {
-      socket.emit('history-sync', { roomId: roomId.value, dataUrl });
-    }
-  };
+const restoreState = (newPaths: Path[], isRemote: boolean = false) => {
+  paths.value = newPaths;
+  draw();
+  
+  if (!isRemote) {
+    syncHistory();
+  }
 };
 
 // 导出为图片
 const exportImage = () => {
-  if (!canvasRef.value) return;
-  const link = document.createElement('a');
-  link.download = 'canvas-export.png';
-  link.href = canvasRef.value.toDataURL();
-  link.click();
+  if (!canvasRef.value || !ctx) return;
+  
+  // 创建一个临时画布，只包含当前的绘制内容（不带缩放和偏移）
+  // 找到所有点范围以确定大小
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  paths.value.forEach(p => {
+    p.points.forEach(pt => {
+      minX = Math.min(minX, pt.x);
+      minY = Math.min(minY, pt.y);
+      maxX = Math.max(maxX, pt.x);
+      maxY = Math.max(maxY, pt.y);
+    });
+  });
+  
+  // 如果没有内容，直接导出当前视图
+  if (minX === Infinity) {
+    const link = document.createElement('a');
+    link.download = 'canvas-export.png';
+    link.href = canvasRef.value.toDataURL();
+    link.click();
+    return;
+  }
+  
+  const padding = 20;
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = maxX - minX + padding * 2;
+  exportCanvas.height = maxY - minY + padding * 2;
+  const eCtx = exportCanvas.getContext('2d');
+  
+  if (eCtx) {
+    eCtx.fillStyle = '#ffffff'; // 设置背景色
+    eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    
+    eCtx.translate(-minX + padding, -minY + padding);
+    
+    // 借用 drawPath 函数的思想，或者直接在这里实现
+    paths.value.forEach(path => {
+      if (path.points.length < 2) return;
+      eCtx.beginPath();
+      eCtx.moveTo(path.points[0].x, path.points[0].y);
+      for (let i = 1; i < path.points.length; i++) {
+        eCtx.lineTo(path.points[i].x, path.points[i].y);
+      }
+      eCtx.lineCap = 'round';
+      eCtx.lineJoin = 'round';
+      if (path.tool === 'eraser') {
+        eCtx.globalCompositeOperation = 'destination-out';
+        eCtx.lineWidth = path.lineWidth * 5;
+      } else {
+        eCtx.globalCompositeOperation = 'source-over';
+        eCtx.strokeStyle = path.color || '#000000';
+        eCtx.lineWidth = path.lineWidth;
+      }
+      eCtx.stroke();
+    });
+    
+    const link = document.createElement('a');
+    link.download = 'drawing-export.png';
+    link.href = exportCanvas.toDataURL();
+    link.click();
+  }
 };
 
 // 分享
@@ -152,18 +247,11 @@ const shareLink = () => {
 // 初始化画布大小
 const resizeCanvas = () => {
   if (canvasRef.value && containerRef.value) {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvasRef.value.width;
-    tempCanvas.height = canvasRef.value.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) tempCtx.drawImage(canvasRef.value, 0, 0);
-
     canvasRef.value.width = containerRef.value.clientWidth;
     canvasRef.value.height = containerRef.value.clientHeight;
     
     // 重新绘制背景和已有的内容
     draw();
-    if (ctx) ctx.drawImage(tempCanvas, 0, 0);
   }
 };
 
@@ -201,7 +289,49 @@ const drawGrid = (width: number, height: number) => {
 // 绘制函数
 const draw = () => {
   if (!ctx || !canvasRef.value) return;
-  // 这里目前不需要做什么，因为绘图是直接在 ctx 上操作的
+  
+  // 清除画布
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
+  
+  // 应用变换
+  ctx.translate(state.offsetX, state.offsetY);
+  ctx.scale(state.scale, state.scale);
+  
+  // 绘制所有路径
+  paths.value.forEach(path => {
+    drawPath(path);
+  });
+
+  // 绘制当前正在画的路径
+  if (currentPath.value) {
+    drawPath(currentPath.value);
+  }
+};
+
+const drawPath = (path: Path) => {
+  if (!ctx || path.points.length < 2) return;
+  
+  ctx.beginPath();
+  ctx.moveTo(path.points[0].x, path.points[0].y);
+  
+  for (let i = 1; i < path.points.length; i++) {
+    ctx.lineTo(path.points[i].x, path.points[i].y);
+  }
+  
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  if (path.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = (path.lineWidth * 5); // 橡皮擦
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = path.color || '#000000';
+    ctx.lineWidth = path.lineWidth;
+  }
+  
+  ctx.stroke();
 };
 
 // 坐标转换：画布坐标转屏幕坐标
@@ -213,32 +343,20 @@ const canvasToScreen = (canvasX: number, canvasY: number) => {
 
 // 处理来自远程的绘制数据
 const handleRemoteDraw = (data: any) => {
-  if (!ctx) return;
-  
-  ctx.save();
-  ctx.translate(state.offsetX, state.offsetY);
-  ctx.scale(state.scale, state.scale);
-  
-  ctx.beginPath();
-  ctx.moveTo(data.lastX, data.lastY);
-  ctx.lineTo(data.x, data.y);
-  
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  
-  if (data.tool === 'eraser') {
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.lineWidth = (data.lineWidth * 5) / state.scale;
-  } else {
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = data.color;
-    ctx.lineWidth = data.lineWidth / state.scale;
+  let path = paths.value.find(p => p.id === data.pathId);
+  if (!path) {
+    path = {
+      id: data.pathId,
+      userId: data.userId,
+      points: [{ x: data.lastX, y: data.lastY }],
+      color: data.color,
+      lineWidth: data.lineWidth,
+      tool: data.tool
+    };
+    paths.value.push(path);
   }
-  
-  ctx.stroke();
-  ctx.restore();
-
-  // 更新远程用户的光标位置（可选，这里先只实现绘制）
+  path.points.push({ x: data.x, y: data.y });
+  draw();
 };
 
 // 滚轮缩放
@@ -280,30 +398,21 @@ const handleMouseDown = (e: MouseEvent) => {
 
   if (e.button === 0) { // 左键
     if (drawState.activeTool === 'pen' || drawState.activeTool === 'eraser') {
-      saveHistory();
       drawState.isDrawing = true;
       const { x, y } = screenToCanvas(e.offsetX, e.offsetY);
       drawState.lastX = x;
       drawState.lastY = y;
       
-      if (!ctx) return;
-      ctx.save();
-      ctx.translate(state.offsetX, state.offsetY);
-      ctx.scale(state.scale, state.scale);
+      currentPath.value = {
+        id: Math.random().toString(36).substring(2, 9),
+        userId: socket?.id || 'local',
+        points: [{ x, y }],
+        color: drawState.activeTool === 'eraser' ? null : drawState.color,
+        lineWidth: drawState.lineWidth,
+        tool: drawState.activeTool
+      };
       
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = drawState.lineWidth / state.scale;
-      
-      if (drawState.activeTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = (drawState.lineWidth * 5) / state.scale; // 橡皮擦默认更粗
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = drawState.color;
-      }
+      draw();
     } else {
       // 默认拖拽视口
       state.isDragging = true;
@@ -329,14 +438,15 @@ const handleMouseMove = (e: MouseEvent) => {
     return;
   }
 
-  if (drawState.isDrawing && ctx) {
+  if (drawState.isDrawing && currentPath.value) {
     const { x, y } = screenToCanvas(e.offsetX, e.offsetY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    currentPath.value.points.push({ x, y });
+    draw();
 
     // 发送绘图数据
     if (socket) {
       socket.emit('draw', {
+        pathId: currentPath.value.id,
         x,
         y,
         lastX: drawState.lastX,
@@ -367,8 +477,19 @@ const handleMouseMove = (e: MouseEvent) => {
 
 // 鼠标抬起
 const handleMouseUp = () => {
-  if (drawState.isDrawing && ctx) {
-    ctx.restore();
+  if (drawState.isDrawing && currentPath.value) {
+    paths.value.push(currentPath.value);
+    
+    // 保存到历史记录：当前用户添加了一个路径
+    saveHistory({ type: 'add', path: currentPath.value });
+    
+    currentPath.value = null;
+    draw();
+    
+    // 发送绘图结束信号，以便其他客户端保存历史记录
+    if (socket) {
+      socket.emit('draw-end', { roomId: roomId.value });
+    }
   }
   state.isDragging = false;
   drawState.isDrawing = false;
@@ -434,14 +555,27 @@ onMounted(() => {
   });
 
   socket.on('clear', () => {
-    if (ctx && canvasRef.value) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-    }
+    paths.value = [];
+    currentPath.value = null;
+    history.undoStack = [];
+    history.redoStack = [];
+    draw();
   });
 
-  socket.on('history-sync', (dataUrl) => {
-    restoreState(dataUrl, true);
+  socket.on('draw-end', () => {
+    // 之前这里会调用 saveHistory()，现在不需要了，因为撤销栈是私有的
+    // 只有自己画的才进自己的撤销栈
+  });
+
+  socket.on('history-sync', (data) => {
+    if (data.paths) {
+      restoreState(data.paths, true);
+    } else if (typeof data === 'string') {
+      // 兼容旧版本的同步（如果是 dataURL）
+      // 虽然现在改为 vector 了，但如果对方还没刷新页面可能会发 dataURL
+      // 不过由于我把 restoreState 改了，这里需要处理一下
+      console.warn('Received old style history sync (dataURL), ignoring.');
+    }
   });
 
   if (canvasRef.value) {

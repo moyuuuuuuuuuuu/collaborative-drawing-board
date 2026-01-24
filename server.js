@@ -46,7 +46,15 @@ io.on('connection', (socket) => {
   socket.on('history-sync', (data) => {
     const roomId = data.roomId || socket.data.roomId;
     if (roomId) {
-      socket.to(roomId).emit('history-sync', data.dataUrl);
+      socket.to(roomId).emit('history-sync', data);
+    }
+  });
+
+  // 转发绘图结束
+  socket.on('draw-end', (data) => {
+    const roomId = data.roomId || socket.data.roomId;
+    if (roomId) {
+      socket.to(roomId).emit('draw-end', { userId: socket.id });
     }
   });
 
