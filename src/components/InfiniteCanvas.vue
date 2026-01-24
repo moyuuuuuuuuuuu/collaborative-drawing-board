@@ -68,6 +68,9 @@ const drawState = reactive({
   lineWidth: 2,
   lastX: 0,
   lastY: 0,
+  mouseX: 0,
+  mouseY: 0,
+  showCursor: false,
 });
 
 // 远程用户信息
@@ -271,6 +274,30 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 // 绘制网格背景（模拟无限感）
 // 已在 gridStyle 中实现，此处暂不需要
 
+// 计算跟随圆圈样式
+const brushCursorStyle = computed(() => {
+  if (!drawState.showCursor || state.isDragging) return {display: 'none'};
+
+  const isEraser = drawState.activeTool === 'eraser';
+  const isPen = drawState.activeTool === 'pen';
+
+  if (!isEraser && !isPen) return {display: 'none'};
+
+  // 橡皮擦宽度在绘制时是 lineWidth * 5
+  const baseSize = isEraser ? drawState.lineWidth * 5 : drawState.lineWidth;
+  const size = baseSize * state.scale;
+
+  return {
+    left: `${drawState.mouseX}px`,
+    top: `${drawState.mouseY}px`,
+    width: `${size}px`,
+    height: `${size}px`,
+    borderColor: isEraser ? '#666' : drawState.color,
+    backgroundColor: isEraser ? 'rgba(255, 255, 255, 0.5)' : 'transparent',
+    display: 'block'
+  };
+});
+
 // 绘制函数
 const draw = () => {
   if (!ctx || !canvasRef.value) return;
@@ -414,6 +441,10 @@ const handleMouseDown = (e: MouseEvent) => {
 
 // 鼠标移动
 const handleMouseMove = (e: MouseEvent) => {
+  drawState.mouseX = e.clientX;
+  drawState.mouseY = e.clientY;
+  drawState.showCursor = true;
+
   if (state.isDragging) {
     const deltaX = e.clientX - state.lastMouseX;
     const deltaY = e.clientY - state.lastMouseY;
@@ -619,7 +650,8 @@ onMounted(() => {
       class="canvas-container"
       :class="{
       [`tool-${drawState.activeTool}`]: true,
-      'tool-drag': state.isDragging || (!drawState.isDrawing && drawState.activeTool !== 'pen' && drawState.activeTool !== 'eraser')
+      'tool-drag': state.isDragging || (!drawState.isDrawing && drawState.activeTool !== 'pen' && drawState.activeTool !== 'eraser'),
+      'dragging': state.isDragging
     }"
       :style="gridStyle"
   >
@@ -629,8 +661,15 @@ onMounted(() => {
         @mousedown="handleMouseDown"
         @mousemove="handleMouseMove"
         @mouseup="handleMouseUp"
-        @mouseleave="handleMouseUp"
+        @mouseleave="() => { handleMouseUp(); drawState.showCursor = false; }"
+        @mouseenter="drawState.showCursor = true"
     ></canvas>
+
+    <!-- 跟随鼠标的圆圈 -->
+    <div
+        class="brush-cursor"
+        :style="brushCursorStyle"
+    ></div>
     <div class="top-right-controls">
       <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
         <Maximize2 v-if="!isFullscreen" :size="20"/>
@@ -741,6 +780,30 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.canvas-container.tool-pen:not(.dragging) canvas,
+.canvas-container.tool-eraser:not(.dragging) canvas {
+  cursor: none;
+}
+
+.canvas-container.tool-drag canvas {
+  cursor: grab !important;
+}
+
+.canvas-container.tool-drag.dragging canvas {
+  cursor: grabbing !important;
+}
+
+.brush-cursor {
+  position: fixed;
+  pointer-events: none;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  display: none;
+  box-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .top-right-controls {
