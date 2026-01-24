@@ -107,8 +107,8 @@ io.on('connection', (socket) => {
     }
   });
 });
-
-const PORT = 3001;
-server.listen(PORT, () => {
-  console.log(`WebSocket server is running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, '0.0.0.0', () => {
+  // 注意：云端部署后，这里打印 localhost 只是个日志，实际访问地址是云平台给你的 URL
+  console.log(`Server is reacting on port: ${PORT}`);
 });

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive, computed } from 'vue';
-import { io, Socket } from 'socket.io-client';
+import {ref, onMounted, onUnmounted, reactive, computed} from 'vue';
+import {io, Socket} from 'socket.io-client';
 import TabBar from './TabBar.vue';
-import { MousePointer2, Maximize2, Minimize2, Users, HelpCircle, X } from 'lucide-vue-next';
+import {MousePointer2, Maximize2, Minimize2, Users, HelpCircle, X} from 'lucide-vue-next';
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -58,7 +58,7 @@ const history = reactive<{
 });
 
 // 生成随机颜色给光标
-const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+const myColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
 
 // 绘图状态
 const drawState = reactive({
@@ -110,7 +110,7 @@ const saveHistory = (action: Action) => {
 // 撤销
 const undo = () => {
   if (history.undoStack.length === 0) return;
-  
+
   const action = history.undoStack.pop();
   if (!action) return;
 
@@ -134,7 +134,7 @@ const undo = () => {
 // 反撤销
 const redo = () => {
   if (history.redoStack.length === 0) return;
-  
+
   const action = history.redoStack.pop();
   if (!action) return;
 
@@ -157,7 +157,7 @@ const redo = () => {
 
 const syncHistory = () => {
   if (socket) {
-    socket.emit('history-sync', { roomId: roomId.value, paths: JSON.parse(JSON.stringify(paths.value)) });
+    socket.emit('history-sync', {roomId: roomId.value, paths: JSON.parse(JSON.stringify(paths.value))});
   }
 };
 
@@ -165,7 +165,7 @@ const syncHistory = () => {
 const restoreState = (newPaths: Path[], isRemote: boolean = false) => {
   paths.value = newPaths;
   draw();
-  
+
   if (!isRemote) {
     syncHistory();
   }
@@ -174,7 +174,7 @@ const restoreState = (newPaths: Path[], isRemote: boolean = false) => {
 // 导出为图片
 const exportImage = () => {
   if (!canvasRef.value || !ctx) return;
-  
+
   // 创建一个临时画布，只包含当前的绘制内容（不带缩放和偏移）
   // 找到所有点范围以确定大小
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -186,7 +186,7 @@ const exportImage = () => {
       maxY = Math.max(maxY, pt.y);
     });
   });
-  
+
   // 如果没有内容，直接导出当前视图
   if (minX === Infinity) {
     const link = document.createElement('a');
@@ -195,19 +195,19 @@ const exportImage = () => {
     link.click();
     return;
   }
-  
+
   const padding = 20;
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = maxX - minX + padding * 2;
   exportCanvas.height = maxY - minY + padding * 2;
   const eCtx = exportCanvas.getContext('2d');
-  
+
   if (eCtx) {
     eCtx.fillStyle = '#ffffff'; // 设置背景色
     eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-    
+
     eCtx.translate(-minX + padding, -minY + padding);
-    
+
     // 借用 drawPath 函数的思想，或者直接在这里实现
     paths.value.forEach(path => {
       if (path.points.length < 2) return;
@@ -234,7 +234,7 @@ const exportImage = () => {
       }
       eCtx.stroke();
     });
-    
+
     const link = document.createElement('a');
     link.download = 'drawing-export.png';
     link.href = exportCanvas.toDataURL();
@@ -255,7 +255,7 @@ const resizeCanvas = () => {
   if (canvasRef.value && containerRef.value) {
     canvasRef.value.width = containerRef.value.clientWidth;
     canvasRef.value.height = containerRef.value.clientHeight;
-    
+
     // 重新绘制背景和已有的内容
     draw();
   }
@@ -265,7 +265,7 @@ const resizeCanvas = () => {
 const screenToCanvas = (screenX: number, screenY: number) => {
   const x = (screenX - state.offsetX) / state.scale;
   const y = (screenY - state.offsetY) / state.scale;
-  return { x, y };
+  return {x, y};
 };
 
 // 绘制网格背景（模拟无限感）
@@ -274,15 +274,15 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 // 绘制函数
 const draw = () => {
   if (!ctx || !canvasRef.value) return;
-  
+
   // 清除画布
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
-  
+
   // 应用变换
   ctx.translate(state.offsetX, state.offsetY);
   ctx.scale(state.scale, state.scale);
-  
+
   // 绘制所有路径
   paths.value.forEach(path => {
     drawPath(path);
@@ -296,23 +296,23 @@ const draw = () => {
 
 const drawPath = (path: Path) => {
   if (!ctx || path.points.length < 2) return;
-  
+
   const firstPoint = path.points[0];
   if (!firstPoint) return;
 
   ctx.beginPath();
   ctx.moveTo(firstPoint.x, firstPoint.y);
-  
+
   for (let i = 1; i < path.points.length; i++) {
     const point = path.points[i];
     if (point) {
       ctx.lineTo(point.x, point.y);
     }
   }
-  
+
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  
+
   if (path.tool === 'eraser') {
     ctx.globalCompositeOperation = 'destination-out';
     ctx.lineWidth = (path.lineWidth * 5); // 橡皮擦
@@ -321,7 +321,7 @@ const drawPath = (path: Path) => {
     ctx.strokeStyle = path.color || '#000000';
     ctx.lineWidth = path.lineWidth;
   }
-  
+
   ctx.stroke();
 };
 
@@ -329,7 +329,7 @@ const drawPath = (path: Path) => {
 const canvasToScreen = (canvasX: number, canvasY: number) => {
   const x = canvasX * state.scale + state.offsetX;
   const y = canvasY * state.scale + state.offsetY;
-  return { x, y };
+  return {x, y};
 };
 
 // 处理来自远程的绘制数据
@@ -339,14 +339,14 @@ const handleRemoteDraw = (data: any) => {
     path = {
       id: data.pathId,
       userId: data.userId,
-      points: [{ x: data.lastX, y: data.lastY }],
+      points: [{x: data.lastX, y: data.lastY}],
       color: data.color,
       lineWidth: data.lineWidth,
       tool: data.tool
     };
     paths.value.push(path);
   }
-  path.points.push({ x: data.x, y: data.y });
+  path.points.push({x: data.x, y: data.y});
   draw();
 };
 
@@ -355,9 +355,9 @@ const handleWheel = (e: WheelEvent) => {
   e.preventDefault();
   const delta = -e.deltaY;
   const zoomFactor = Math.pow(1.1, delta / 100);
-  
+
   const newScale = state.scale * zoomFactor;
-  
+
   // 限制缩放范围
   if (newScale < 0.1 || newScale > 20) return;
 
@@ -389,19 +389,19 @@ const handleMouseDown = (e: MouseEvent) => {
   if (e.button === 0) { // 左键
     if (drawState.activeTool === 'pen' || drawState.activeTool === 'eraser') {
       drawState.isDrawing = true;
-      const { x, y } = screenToCanvas(e.offsetX, e.offsetY);
+      const {x, y} = screenToCanvas(e.offsetX, e.offsetY);
       drawState.lastX = x;
       drawState.lastY = y;
-      
+
       currentPath.value = {
         id: Math.random().toString(36).substring(2, 9),
         userId: socket?.id || 'local',
-        points: [{ x, y }],
+        points: [{x, y}],
         color: drawState.activeTool === 'eraser' ? null : drawState.color,
         lineWidth: drawState.lineWidth,
         tool: drawState.activeTool
       };
-      
+
       draw();
     } else {
       // 默认拖拽视口
@@ -429,8 +429,8 @@ const handleMouseMove = (e: MouseEvent) => {
   }
 
   if (drawState.isDrawing && currentPath.value) {
-    const { x, y } = screenToCanvas(e.offsetX, e.offsetY);
-    currentPath.value.points.push({ x, y });
+    const {x, y} = screenToCanvas(e.offsetX, e.offsetY);
+    currentPath.value.points.push({x, y});
     draw();
 
     // 发送绘图数据
@@ -455,7 +455,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
   // 非绘图状态下发送鼠标位置
   if (socket && !state.isDragging) {
-    const { x, y } = screenToCanvas(e.offsetX, e.offsetY);
+    const {x, y} = screenToCanvas(e.offsetX, e.offsetY);
     socket.emit('mouse-move', {
       x,
       y,
@@ -469,16 +469,16 @@ const handleMouseMove = (e: MouseEvent) => {
 const handleMouseUp = () => {
   if (drawState.isDrawing && currentPath.value) {
     paths.value.push(currentPath.value);
-    
+
     // 保存到历史记录：当前用户添加了一个路径
-    saveHistory({ type: 'add', path: currentPath.value });
-    
+    saveHistory({type: 'add', path: currentPath.value});
+
     currentPath.value = null;
     draw();
-    
+
     // 发送绘图结束信号，以便其他客户端保存历史记录
     if (socket) {
-      socket.emit('draw-end', { roomId: roomId.value });
+      socket.emit('draw-end', {roomId: roomId.value});
     }
   }
   state.isDragging = false;
@@ -497,12 +497,12 @@ const toggleFullscreen = () => {
 
   if (!document.fullscreenElement) {
     containerRef.value.requestFullscreen()
-      .then(() => {
-        isFullscreen.value = true;
-      })
-      .catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
+        .then(() => {
+          isFullscreen.value = true;
+        })
+        .catch(err => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
   } else {
     document.exitFullscreen().then(() => {
       isFullscreen.value = false;
@@ -518,14 +518,15 @@ const handleFullscreenChange = () => {
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-  // 初始化 WebSocket
-  // 动态获取当前主机名，如果前端和后端部署在同一台机器，可以使用 window.location.hostname
   const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : `http://${window.location.hostname}:3001`;
-  
-  socket = io(serverUrl);
-  
+      ? 'http://localhost:3001'
+      : 'https://collaborative-drawing-board-8e6n.onrender.com'; // 替换成你真实的后端云服务地址
+
+// 提示：生产环境必须用 https:// (对于 Socket.IO 对应的是 wss)
+  socket = io(serverUrl, {
+    transports: ['websocket', 'polling'] // 增加稳定性
+  });
+
   socket.on('connect', () => {
     console.log('Connected to WebSocket server at:', serverUrl);
     if (socket && roomId.value) {
@@ -544,18 +545,18 @@ onMounted(() => {
   socket.on('draw', (data) => {
     handleRemoteDraw(data);
     // 更新或创建远程用户光标位置
-    remoteUsers.value.set(data.userId, { 
-      x: data.x, 
-      y: data.y, 
-      color: data.color || '#000000' 
+    remoteUsers.value.set(data.userId, {
+      x: data.x,
+      y: data.y,
+      color: data.color || '#000000'
     });
   });
 
   socket.on('mouse-move', (data) => {
-    remoteUsers.value.set(data.userId, { 
-      x: data.x, 
-      y: data.y, 
-      color: data.color || '#000000' 
+    remoteUsers.value.set(data.userId, {
+      x: data.x,
+      y: data.y,
+      color: data.color || '#000000'
     });
   });
 
@@ -589,17 +590,17 @@ onMounted(() => {
 
   if (canvasRef.value) {
     ctx = canvasRef.value.getContext('2d');
-    
+
     const resizeObserver = new ResizeObserver(() => {
       resizeCanvas();
     });
-    
+
     if (containerRef.value) {
       resizeObserver.observe(containerRef.value);
     }
-    
+
     resizeCanvas();
-    
+
     // 在组件卸载时断开观察
     onUnmounted(() => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -613,30 +614,30 @@ onMounted(() => {
 </script>
 
 <template>
-  <div 
-    ref="containerRef" 
-    class="canvas-container"
-    :class="{
+  <div
+      ref="containerRef"
+      class="canvas-container"
+      :class="{
       [`tool-${drawState.activeTool}`]: true,
       'tool-drag': state.isDragging || (!drawState.isDrawing && drawState.activeTool !== 'pen' && drawState.activeTool !== 'eraser')
     }"
-    :style="gridStyle"
+      :style="gridStyle"
   >
     <canvas
-      ref="canvasRef"
-      @wheel="handleWheel"
-      @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @mouseleave="handleMouseUp"
+        ref="canvasRef"
+        @wheel="handleWheel"
+        @mousedown="handleMouseDown"
+        @mousemove="handleMouseMove"
+        @mouseup="handleMouseUp"
+        @mouseleave="handleMouseUp"
     ></canvas>
     <div class="top-right-controls">
       <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
-        <Maximize2 v-if="!isFullscreen" :size="20" />
-        <Minimize2 v-else :size="20" />
+        <Maximize2 v-if="!isFullscreen" :size="20"/>
+        <Minimize2 v-else :size="20"/>
       </button>
       <button class="help-btn" @click="showHelp = true" title="快捷键帮助">
-        <HelpCircle :size="20" />
+        <HelpCircle :size="20"/>
       </button>
     </div>
 
@@ -647,7 +648,7 @@ onMounted(() => {
           <div class="modal-header">
             <h3>快捷键与操作指南</h3>
             <button class="close-btn" @click="showHelp = false">
-              <X :size="20" />
+              <X :size="20"/>
             </button>
           </div>
           <div class="modal-body">
@@ -679,37 +680,37 @@ onMounted(() => {
     <div class="room-info">
       <div class="room-id">房间: {{ roomId }}</div>
       <div class="online-count">
-        <Users :size="14" />
+        <Users :size="14"/>
         <span>在线: {{ remoteUsers.size + 1 }}</span>
       </div>
     </div>
 
     <!-- 远程用户光标 -->
-    <div 
-      v-for="[id, user] in remoteUsers" 
-      :key="id" 
-      class="remote-cursor-container"
-      :style="{
+    <div
+        v-for="[id, user] in remoteUsers"
+        :key="id"
+        class="remote-cursor-container"
+        :style="{
         left: canvasToScreen(user.x, user.y).x + 'px',
         top: canvasToScreen(user.x, user.y).y + 'px',
         color: user.color
       }"
     >
-      <MousePointer2 :size="18" fill="currentColor" />
+      <MousePointer2 :size="18" fill="currentColor"/>
       <div class="cursor-label" :style="{ backgroundColor: user.color }">{{ id.substring(0, 4) }}</div>
     </div>
-    
-    <TabBar 
-      :active-tool="drawState.activeTool"
-      :line-width="drawState.lineWidth"
-      :color="drawState.color"
-      @select-tool="tool => drawState.activeTool = tool"
-      @change-line-width="width => drawState.lineWidth = width"
-      @change-color="color => drawState.color = color"
-      @undo="undo"
-      @redo="redo"
-      @export="exportImage"
-      @share="shareLink"
+
+    <TabBar
+        :active-tool="drawState.activeTool"
+        :line-width="drawState.lineWidth"
+        :color="drawState.color"
+        @select-tool="tool => drawState.activeTool = tool"
+        @change-line-width="width => drawState.lineWidth = width"
+        @change-color="color => drawState.color = color"
+        @undo="undo"
+        @redo="redo"
+        @export="exportImage"
+        @share="shareLink"
     />
   </div>
 </template>
@@ -763,14 +764,14 @@ canvas {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   color: #333;
 }
 
 .fullscreen-btn:hover, .help-btn:hover {
   background-color: #fff;
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 弹窗样式 */
@@ -799,8 +800,14 @@ canvas {
 }
 
 @keyframes modal-in {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -867,6 +874,7 @@ canvas {
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s;
 }
+
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
@@ -885,7 +893,7 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .online-count {
@@ -914,6 +922,6 @@ canvas {
   border-radius: 4px;
   font-size: 10px;
   white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 </style>
