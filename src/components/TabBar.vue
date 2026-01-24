@@ -7,8 +7,7 @@ import {
   Undo2, 
   Redo2, 
   Download, 
-  Share2,
-  ChevronUp
+  Share2
 } from 'lucide-vue-next';
 
 const props = defineProps<{

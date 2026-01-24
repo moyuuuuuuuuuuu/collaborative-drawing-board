@@ -211,10 +211,16 @@ const exportImage = () => {
     // 借用 drawPath 函数的思想，或者直接在这里实现
     paths.value.forEach(path => {
       if (path.points.length < 2) return;
+      const firstPoint = path.points[0];
+      if (!firstPoint) return;
+
       eCtx.beginPath();
-      eCtx.moveTo(path.points[0].x, path.points[0].y);
+      eCtx.moveTo(firstPoint.x, firstPoint.y);
       for (let i = 1; i < path.points.length; i++) {
-        eCtx.lineTo(path.points[i].x, path.points[i].y);
+        const point = path.points[i];
+        if (point) {
+          eCtx.lineTo(point.x, point.y);
+        }
       }
       eCtx.lineCap = 'round';
       eCtx.lineJoin = 'round';
@@ -263,28 +269,7 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 };
 
 // 绘制网格背景（模拟无限感）
-const drawGrid = (width: number, height: number) => {
-  if (!ctx) return;
-  const gridSize = 50;
-  const startX = Math.floor((-state.offsetX / state.scale) / gridSize) * gridSize;
-  const startY = Math.floor((-state.offsetY / state.scale) / gridSize) * gridSize;
-  const endX = startX + width / state.scale + gridSize;
-  const endY = startY + height / state.scale + gridSize;
-
-  ctx.beginPath();
-  ctx.strokeStyle = '#e0e0e0';
-  ctx.lineWidth = 1 / state.scale;
-
-  for (let x = startX; x <= endX; x += gridSize) {
-    ctx.moveTo(x, startY);
-    ctx.lineTo(x, endY);
-  }
-  for (let y = startY; y <= endY; y += gridSize) {
-    ctx.moveTo(startX, y);
-    ctx.lineTo(endX, y);
-  }
-  ctx.stroke();
-};
+// 已在 gridStyle 中实现，此处暂不需要
 
 // 绘制函数
 const draw = () => {
@@ -312,11 +297,17 @@ const draw = () => {
 const drawPath = (path: Path) => {
   if (!ctx || path.points.length < 2) return;
   
+  const firstPoint = path.points[0];
+  if (!firstPoint) return;
+
   ctx.beginPath();
-  ctx.moveTo(path.points[0].x, path.points[0].y);
+  ctx.moveTo(firstPoint.x, firstPoint.y);
   
   for (let i = 1; i < path.points.length; i++) {
-    ctx.lineTo(path.points[i].x, path.points[i].y);
+    const point = path.points[i];
+    if (point) {
+      ctx.lineTo(point.x, point.y);
+    }
   }
   
   ctx.lineCap = 'round';
@@ -362,7 +353,6 @@ const handleRemoteDraw = (data: any) => {
 // 滚轮缩放
 const handleWheel = (e: WheelEvent) => {
   e.preventDefault();
-  const zoomSpeed = 0.001;
   const delta = -e.deltaY;
   const zoomFactor = Math.pow(1.1, delta / 100);
   
@@ -495,20 +485,36 @@ const handleMouseUp = () => {
   drawState.isDrawing = false;
 };
 
+// 全屏状态
+const isFullscreen = ref(false);
+
 // 全屏切换
 const toggleFullscreen = () => {
   if (!containerRef.value) return;
 
   if (!document.fullscreenElement) {
-    containerRef.value.requestFullscreen().catch(err => {
-      console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-    });
+    containerRef.value.requestFullscreen()
+      .then(() => {
+        isFullscreen.value = true;
+      })
+      .catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
   } else {
-    document.exitFullscreen();
+    document.exitFullscreen().then(() => {
+      isFullscreen.value = false;
+    });
   }
 };
 
+// 监听全屏变化
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement;
+};
+
 onMounted(() => {
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+
   // 初始化 WebSocket
   // 动态获取当前主机名，如果前端和后端部署在同一台机器，可以使用 window.location.hostname
   const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -593,6 +599,7 @@ onMounted(() => {
     
     // 在组件卸载时断开观察
     onUnmounted(() => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       resizeObserver.disconnect();
       if (socket) {
         socket.disconnect();
