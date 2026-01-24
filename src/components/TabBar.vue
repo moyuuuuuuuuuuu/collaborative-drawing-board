@@ -213,6 +213,15 @@ onUnmounted(() => {
   z-index: 1000;
   user-select: none;
   border: 1px solid #ddd;
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tabbar-container {
+    background-color: rgba(30, 30, 30, 0.9);
+    border-color: #444;
+    color: #eee;
+  }
 }
 
 .tool-item {
@@ -230,6 +239,12 @@ onUnmounted(() => {
 
 .tool-item:hover {
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tool-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .tool-item.active {
@@ -259,6 +274,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   z-index: 1001;
+}
+
+@media (prefers-color-scheme: dark) {
+  .thickness-panel, .color-panel {
+    background-color: rgba(30, 30, 30, 0.95);
+    border-color: #444;
+  }
 }
 
 .color-presets {
@@ -296,6 +318,12 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+@media (prefers-color-scheme: dark) {
+  .custom-color {
+    border-top-color: #444;
+  }
+}
+
 .current-color-indicator {
   width: 14px;
   height: 2px;
@@ -307,6 +335,12 @@ onUnmounted(() => {
 .thickness-label {
   font-size: 12px;
   color: #666;
+}
+
+@media (prefers-color-scheme: dark) {
+  .thickness-label {
+    color: #aaa;
+  }
 }
 
 .thickness-slider {
@@ -326,6 +360,12 @@ onUnmounted(() => {
   border-radius: 50%;
   cursor: pointer;
   transition: transform 0.1s;
+}
+
+@media (prefers-color-scheme: dark) {
+  .preset-dot {
+    background-color: #ccc;
+  }
 }
 
 .preset-dot:hover {

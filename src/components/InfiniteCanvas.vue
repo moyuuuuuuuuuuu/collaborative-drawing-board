@@ -831,10 +831,24 @@ canvas {
   color: #333;
 }
 
+@media (prefers-color-scheme: dark) {
+  .fullscreen-btn, .help-btn {
+    background-color: rgba(30, 30, 30, 0.9);
+    border-color: #444;
+    color: #eee;
+  }
+}
+
 .fullscreen-btn:hover, .help-btn:hover {
   background-color: #fff;
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .fullscreen-btn:hover, .help-btn:hover {
+    background-color: #333;
+  }
 }
 
 /* 弹窗样式 */
@@ -862,6 +876,13 @@ canvas {
   animation: modal-in 0.3s ease-out;
 }
 
+@media (prefers-color-scheme: dark) {
+  .help-modal {
+    background: #1e1e1e;
+    color: #eee;
+  }
+}
+
 @keyframes modal-in {
   from {
     transform: scale(0.9);
@@ -882,10 +903,23 @@ canvas {
   background: #f8f9fa;
 }
 
+@media (prefers-color-scheme: dark) {
+  .modal-header {
+    background: #252525;
+    border-bottom-color: #333;
+  }
+}
+
 .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
   color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-header h3 {
+    color: #eee;
+  }
 }
 
 .close-btn {
@@ -899,9 +933,22 @@ canvas {
   transition: background 0.2s;
 }
 
+@media (prefers-color-scheme: dark) {
+  .close-btn {
+    color: #aaa;
+  }
+}
+
 .close-btn:hover {
   background: #eee;
   color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .close-btn:hover {
+    background: #333;
+    color: #eee;
+  }
 }
 
 .modal-body {
@@ -927,10 +974,24 @@ canvas {
   text-align: center;
 }
 
+@media (prefers-color-scheme: dark) {
+  .key {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #ccc;
+  }
+}
+
 .desc {
   font-size: 0.9rem;
   color: #666;
   flex: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .desc {
+    color: #aaa;
+  }
 }
 
 /* 动画 */
@@ -957,6 +1018,15 @@ canvas {
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .room-info {
+    background-color: rgba(30, 30, 30, 0.9);
+    border-color: #444;
+    color: #eee;
+  }
 }
 
 .online-count {
@@ -965,6 +1035,12 @@ canvas {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .online-count {
+    color: #aaa;
+  }
 }
 
 .remote-cursor-container {
